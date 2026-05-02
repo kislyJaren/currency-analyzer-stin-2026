@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Currency Analyzer - Nastavení</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="topbar">
+    <div>
+        <strong>Currency Analyzer</strong>
+    </div>
+    <nav>
+        <a th:href="@{/dashboard}">Dashboard</a>
+        <a th:href="@{/settings}">Nastavení</a>
+        <form th:action="@{/logout}" method="post" class="logout-form">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <button type="submit" class="link-button">Odhlásit</button>
+        </form>
+    </nav>
+</header>
+
+<main class="page">
+    <section class="card">
+        <h1>Nastavení</h1>
+        <p class="muted">Uložené preference budou později ukládány do persistentního úložiště.</p>
+
+        <form class="form">
+            <label for="baseCurrency">Výchozí základní měna</label>
+            <select id="baseCurrency" name="baseCurrency">
+                <option th:text="${baseCurrency}" selected>EUR</option>
+            </select>
+
+            <fieldset>
+                <legend>Preferované měny</legend>
+
+                <label class="checkbox-row" th:each="currency : ${availableCurrencies}">
+                    <input type="checkbox"
+                           name="selectedCurrencies"
+                           th:value="${currency}"
+                           th:checked="${selectedCurrencies.contains(currency)}">
+                    <span th:text="${currency}">USD</span>
+                </label>
+            </fieldset>
+
+            <label for="language">Jazyk</label>
+            <select id="language" name="language">
+                <option value="CZ" th:selected="${language == 'CZ'}">Čeština</option>
+                <option value="EN" th:selected="${language == 'EN'}">English</option>
+            </select>
+
+            <button type="submit">Uložit nastavení</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>

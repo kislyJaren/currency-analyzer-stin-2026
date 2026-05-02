@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Currency Analyzer - Login</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<main class="auth-container">
+    <section class="card auth-card">
+        <h1>Currency Analyzer</h1>
+        <p class="muted">Přihlášení do aplikace</p>
+
+        <div th:if="${param.error}" class="alert alert-error">
+            Neplatné uživatelské jméno nebo heslo.
+        </div>
+
+        <div th:if="${param.logout}" class="alert alert-success">
+            Byl jste odhlášen.
+        </div>
+
+        <form th:action="@{/login}" method="post" class="form">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+            <label for="username">Uživatelské jméno</label>
+            <input id="username" name="username" type="text" autocomplete="username" required>
+
+            <label for="password">Heslo</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+            <button type="submit">Přihlásit</button>
+        </form>
+
+        <p class="hint">Výchozí lokální účet: user / password</p>
+    </section>
+</main>
+</body>
+</html>
