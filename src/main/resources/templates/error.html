@@ -8,9 +8,18 @@
 <body>
 <main class="page">
     <section class="card">
-        <h1>Chyba</h1>
-        <p class="alert alert-error">Došlo k chybě při zpracování požadavku.</p>
-        <a th:href="@{/dashboard}">Zpět na dashboard</a>
+        <h1 th:text="${errorTitle != null ? errorTitle : 'Chyba'}">Chyba</h1>
+
+        <p class="alert alert-error"
+           th:text="${errorMessage != null ? errorMessage : 'Doslo k chybe pri zpracovani pozadavku.'}">
+            Doslo k chybe pri zpracovani pozadavku.
+        </p>
+
+        <p class="muted" th:if="${logId != null}">
+            ID logu: <span th:text="${logId}">1</span>
+        </p>
+
+        <a th:href="@{/dashboard}">Zpet na dashboard</a>
     </section>
 </main>
 </body>
