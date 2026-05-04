@@ -23,12 +23,23 @@
 <main class="page">
     <section class="card">
         <h1>Nastavení</h1>
-        <p class="muted">Uložené preference budou později ukládány do persistentního úložiště.</p>
+        <p class="muted">Uložené preference se ukládají do databáze.</p>
 
-        <form class="form">
+        <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}">
+            Nastavení bylo uloženo.
+        </div>
+
+        <form class="form" method="post" th:action="@{/settings}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
             <label for="baseCurrency">Výchozí základní měna</label>
             <select id="baseCurrency" name="baseCurrency">
-                <option th:text="${baseCurrency}" selected>EUR</option>
+                <option th:each="currency : ${availableCurrencies}"
+                        th:value="${currency}"
+                        th:text="${currency}"
+                        th:selected="${currency == baseCurrency}">
+                    EUR
+                </option>
             </select>
 
             <fieldset>

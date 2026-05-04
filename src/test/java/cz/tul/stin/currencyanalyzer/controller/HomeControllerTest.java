@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -48,5 +50,17 @@ class HomeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Nastavení")))
                 .andExpect(content().string(containsString("Preferované měny")));
+    }
+
+    @Test
+    void settingsShouldBeSavedForAuthenticatedUser() throws Exception {
+        mockMvc.perform(post("/settings")
+                        .with(user("user").roles("USER"))
+                        .with(csrf())
+                        .param("baseCurrency", "USD")
+                        .param("selectedCurrencies", "CZK", "GBP")
+                        .param("language", "EN"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/settings"));
     }
 }
