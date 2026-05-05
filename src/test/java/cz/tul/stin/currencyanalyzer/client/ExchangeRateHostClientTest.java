@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -44,15 +45,15 @@ class ExchangeRateHostClientTest {
     }
 
     @Test
-    void shouldGetLatestRates() {
+    void shouldGetLatestRatesWithoutSourceParameterAndConvertToSelectedBaseCurrency() {
         String json = """
                 {
                   "success": true,
-                  "source": "EUR",
-                  "timestamp": 1777680000,
+                  "source": "USD",
+                  "date": "2026-05-03",
                   "quotes": {
-                    "EURUSD": 1.08,
-                    "EURCZK": 24.50
+                    "USDEUR": 0.5,
+                    "USDCZK": 10
                   }
                 }
                 """;
@@ -62,8 +63,9 @@ class ExchangeRateHostClientTest {
         LatestRatesDto result = client.getLatestRates("eur", List.of("usd", "czk"));
 
         assertEquals("EUR", result.baseCurrency());
-        assertBigDecimalEquals("1.08", result.rates().get("USD"));
-        assertBigDecimalEquals("24.50", result.rates().get("CZK"));
+        assertEquals(LocalDate.of(2026, 5, 3), result.date());
+        assertBigDecimalEquals("2.0000000000", result.rates().get("USD"));
+        assertBigDecimalEquals("20.0000000000", result.rates().get("CZK"));
 
         ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
         verify(httpResponseReader).get(uriCaptor.capture());
@@ -72,30 +74,41 @@ class ExchangeRateHostClientTest {
 
         assertTrue(uri.startsWith("https://api.example.test/live?"));
         assertTrue(uri.contains("access_key=test-key"));
-        assertTrue(uri.contains("source=EUR"));
-        assertTrue(uri.contains("currencies=USD%2CCZK"));
+        assertTrue(uri.contains("currencies=EUR%2CCZK"));
+        assertTrue(!uri.contains("source=EUR"));
     }
 
     @Test
-    void shouldGetHistoricalRates() {
-        String json = """
+    void shouldGetHistoricalRatesByCallingHistoricalEndpointForEachDay() {
+        String firstDayJson = """
                 {
                   "success": true,
-                  "timeframe": true,
-                  "source": "EUR",
+                  "historical": true,
+                  "source": "USD",
+                  "date": "2026-01-01",
                   "quotes": {
-                    "2026-01-01": {
-                      "EURUSD": 1.08,
-                      "EURCZK": 24.50
-                    },
-                    "2026-01-02": {
-                      "EURUSD": 1.07
-                    }
+                    "USDEUR": 0.5,
+                    "USDCZK": 10
                   }
                 }
                 """;
 
-        when(httpResponseReader.get(any(URI.class))).thenReturn(json);
+        String secondDayJson = """
+                {
+                  "success": true,
+                  "historical": true,
+                  "source": "USD",
+                  "date": "2026-01-02",
+                  "quotes": {
+                    "USDEUR": 0.4,
+                    "USDCZK": 8
+                  }
+                }
+                """;
+
+        when(httpResponseReader.get(any(URI.class)))
+                .thenReturn(firstDayJson)
+                .thenReturn(secondDayJson);
 
         HistoricalRatesDto result = client.getHistoricalRates(
                 "EUR",
@@ -107,21 +120,43 @@ class ExchangeRateHostClientTest {
         assertEquals("EUR", result.baseCurrency());
         assertEquals(LocalDate.of(2026, 1, 1), result.startDate());
         assertEquals(LocalDate.of(2026, 1, 2), result.endDate());
-        assertBigDecimalEquals("1.08", result.rates().get(LocalDate.of(2026, 1, 1)).get("USD"));
-        assertBigDecimalEquals("24.50", result.rates().get(LocalDate.of(2026, 1, 1)).get("CZK"));
-        assertBigDecimalEquals("1.07", result.rates().get(LocalDate.of(2026, 1, 2)).get("USD"));
+
+        assertBigDecimalEquals(
+                "2.0000000000",
+                result.rates().get(LocalDate.of(2026, 1, 1)).get("USD")
+        );
+        assertBigDecimalEquals(
+                "20.0000000000",
+                result.rates().get(LocalDate.of(2026, 1, 1)).get("CZK")
+        );
+        assertBigDecimalEquals(
+                "2.5000000000",
+                result.rates().get(LocalDate.of(2026, 1, 2)).get("USD")
+        );
+        assertBigDecimalEquals(
+                "20.0000000000",
+                result.rates().get(LocalDate.of(2026, 1, 2)).get("CZK")
+        );
 
         ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
-        verify(httpResponseReader).get(uriCaptor.capture());
+        verify(httpResponseReader, times(2)).get(uriCaptor.capture());
 
-        String uri = uriCaptor.getValue().toString();
+        List<URI> capturedUris = uriCaptor.getAllValues();
 
-        assertTrue(uri.startsWith("https://api.example.test/timeframe?"));
-        assertTrue(uri.contains("access_key=test-key"));
-        assertTrue(uri.contains("source=EUR"));
-        assertTrue(uri.contains("currencies=USD%2CCZK"));
-        assertTrue(uri.contains("start_date=2026-01-01"));
-        assertTrue(uri.contains("end_date=2026-01-02"));
+        String firstUri = capturedUris.get(0).toString();
+        String secondUri = capturedUris.get(1).toString();
+
+        assertTrue(firstUri.startsWith("https://api.example.test/historical?"));
+        assertTrue(firstUri.contains("access_key=test-key"));
+        assertTrue(firstUri.contains("date=2026-01-01"));
+        assertTrue(firstUri.contains("currencies=EUR%2CCZK"));
+        assertTrue(!firstUri.contains("source=EUR"));
+
+        assertTrue(secondUri.startsWith("https://api.example.test/historical?"));
+        assertTrue(secondUri.contains("access_key=test-key"));
+        assertTrue(secondUri.contains("date=2026-01-02"));
+        assertTrue(secondUri.contains("currencies=EUR%2CCZK"));
+        assertTrue(!secondUri.contains("source=EUR"));
     }
 
     @Test

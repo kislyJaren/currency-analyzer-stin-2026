@@ -4,6 +4,8 @@ import cz.tul.stin.currencyanalyzer.config.ExchangeRateApiProperties;
 import cz.tul.stin.currencyanalyzer.dto.HistoricalRatesDto;
 import cz.tul.stin.currencyanalyzer.dto.LatestRatesDto;
 import cz.tul.stin.currencyanalyzer.exception.ExchangeRateClientException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +19,9 @@ import org.springframework.stereotype.Service;
 public class ExchangeRateHostClient implements ExchangeRateClient {
 
     private static final String LIVE_ENDPOINT = "/live";
-    private static final String TIMEFRAME_ENDPOINT = "/timeframe";
+    private static final String HISTORICAL_ENDPOINT = "/historical";
+    private static final String DEFAULT_API_BASE_CURRENCY = "USD";
+    private static final int RATE_SCALE = 10;
 
     private final ExchangeRateApiProperties properties;
     private final ExchangeRateResponseMapper responseMapper;
@@ -37,16 +41,26 @@ public class ExchangeRateHostClient implements ExchangeRateClient {
     public LatestRatesDto getLatestRates(String baseCurrency, List<String> currencies) {
         String normalizedBaseCurrency = normalizeCurrency(baseCurrency, "Base currency must not be empty.");
         List<String> normalizedCurrencies = normalizeCurrencies(currencies);
+        List<String> apiCurrencies = buildApiCurrencies(normalizedBaseCurrency, normalizedCurrencies);
 
         Map<String, String> queryParameters = new LinkedHashMap<>();
         queryParameters.put("access_key", nullToEmpty(properties.accessKey()));
-        queryParameters.put("source", normalizedBaseCurrency);
-        queryParameters.put("currencies", String.join(",", normalizedCurrencies));
+        queryParameters.put("currencies", String.join(",", apiCurrencies));
 
         URI uri = buildUri(LIVE_ENDPOINT, queryParameters);
         String json = httpResponseReader.get(uri);
 
-        return responseMapper.mapLatestRates(json, normalizedBaseCurrency);
+        LatestRatesDto usdRates = responseMapper.mapLatestRates(json, DEFAULT_API_BASE_CURRENCY);
+
+        return new LatestRatesDto(
+                normalizedBaseCurrency,
+                usdRates.date(),
+                convertRatesToBaseCurrency(
+                        usdRates.rates(),
+                        normalizedBaseCurrency,
+                        normalizedCurrencies
+                )
+        );
     }
 
     @Override
@@ -60,17 +74,87 @@ public class ExchangeRateHostClient implements ExchangeRateClient {
         List<String> normalizedCurrencies = normalizeCurrencies(currencies);
         validateDateRange(startDate, endDate);
 
-        Map<String, String> queryParameters = new LinkedHashMap<>();
-        queryParameters.put("access_key", nullToEmpty(properties.accessKey()));
-        queryParameters.put("source", normalizedBaseCurrency);
-        queryParameters.put("currencies", String.join(",", normalizedCurrencies));
-        queryParameters.put("start_date", startDate.toString());
-        queryParameters.put("end_date", endDate.toString());
+        Map<LocalDate, Map<String, BigDecimal>> convertedRates = new LinkedHashMap<>();
+        List<String> apiCurrencies = buildApiCurrencies(normalizedBaseCurrency, normalizedCurrencies);
 
-        URI uri = buildUri(TIMEFRAME_ENDPOINT, queryParameters);
-        String json = httpResponseReader.get(uri);
+        LocalDate currentDate = startDate;
 
-        return responseMapper.mapHistoricalRates(json, normalizedBaseCurrency, startDate, endDate);
+        while (!currentDate.isAfter(endDate)) {
+            Map<String, String> queryParameters = new LinkedHashMap<>();
+            queryParameters.put("access_key", nullToEmpty(properties.accessKey()));
+            queryParameters.put("date", currentDate.toString());
+            queryParameters.put("currencies", String.join(",", apiCurrencies));
+
+            URI uri = buildUri(HISTORICAL_ENDPOINT, queryParameters);
+            String json = httpResponseReader.get(uri);
+
+            LatestRatesDto usdRates = responseMapper.mapLatestRates(json, DEFAULT_API_BASE_CURRENCY);
+            convertedRates.put(
+                    currentDate,
+                    convertRatesToBaseCurrency(
+                            usdRates.rates(),
+                            normalizedBaseCurrency,
+                            normalizedCurrencies
+                    )
+            );
+
+            currentDate = currentDate.plusDays(1);
+        }
+
+        return new HistoricalRatesDto(
+                normalizedBaseCurrency,
+                startDate,
+                endDate,
+                convertedRates
+        );
+    }
+
+    private List<String> buildApiCurrencies(String baseCurrency, List<String> currencies) {
+        return java.util.stream.Stream.concat(
+                        java.util.stream.Stream.of(baseCurrency),
+                        currencies.stream()
+                )
+                .filter(currency -> !DEFAULT_API_BASE_CURRENCY.equals(currency))
+                .distinct()
+                .toList();
+    }
+
+    private Map<String, BigDecimal> convertRatesToBaseCurrency(
+            Map<String, BigDecimal> usdRates,
+            String baseCurrency,
+            List<String> targetCurrencies
+    ) {
+        BigDecimal usdToBaseRate = getUsdToCurrencyRate(usdRates, baseCurrency);
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+
+        for (String targetCurrency : targetCurrencies) {
+            if (targetCurrency.equals(baseCurrency)) {
+                result.put(targetCurrency, BigDecimal.ONE);
+                continue;
+            }
+
+            BigDecimal usdToTargetRate = getUsdToCurrencyRate(usdRates, targetCurrency);
+            result.put(
+                    targetCurrency,
+                    usdToTargetRate.divide(usdToBaseRate, RATE_SCALE, RoundingMode.HALF_UP)
+            );
+        }
+
+        return result;
+    }
+
+    private BigDecimal getUsdToCurrencyRate(Map<String, BigDecimal> usdRates, String currency) {
+        if (DEFAULT_API_BASE_CURRENCY.equals(currency)) {
+            return BigDecimal.ONE;
+        }
+
+        BigDecimal rate = usdRates.get(currency);
+
+        if (rate == null) {
+            throw new ExchangeRateClientException("API response does not contain rate for " + currency + ".");
+        }
+
+        return rate;
     }
 
     private URI buildUri(String endpoint, Map<String, String> queryParameters) {
