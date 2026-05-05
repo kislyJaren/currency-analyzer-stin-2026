@@ -125,6 +125,88 @@ class CurrencyAnalysisServiceTest {
     }
 
     @Test
+    void shouldRejectNullRateDate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> currencyAnalysisService.analyze(
+                        "EUR",
+                        List.of("USD"),
+                        null,
+                        LocalDate.now().minusDays(2),
+                        LocalDate.now().minusDays(1)
+                )
+        );
+
+        verifyNoInteractions(exchangeRateClient);
+    }
+
+    @Test
+    void shouldRejectNullAverageStartDate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> currencyAnalysisService.analyze(
+                        "EUR",
+                        List.of("USD"),
+                        LocalDate.now(),
+                        null,
+                        LocalDate.now()
+                )
+        );
+
+        verifyNoInteractions(exchangeRateClient);
+    }
+
+    @Test
+    void shouldRejectNullAverageEndDate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> currencyAnalysisService.analyze(
+                        "EUR",
+                        List.of("USD"),
+                        LocalDate.now(),
+                        LocalDate.now().minusDays(1),
+                        null
+                )
+        );
+
+        verifyNoInteractions(exchangeRateClient);
+    }
+
+    @Test
+    void shouldRejectMissingRatesForSelectedDate() {
+        LocalDate rateDate = LocalDate.of(2026, 5, 3);
+        LocalDate averageStartDate = LocalDate.of(2026, 5, 1);
+        LocalDate averageEndDate = LocalDate.of(2026, 5, 2);
+        List<String> currencies = List.of("USD");
+
+        HistoricalRatesDto ratesForDifferentDate = new HistoricalRatesDto(
+                "EUR",
+                rateDate,
+                rateDate,
+                Map.of(
+                        LocalDate.of(2026, 5, 2),
+                        Map.of("USD", new BigDecimal("1.08"))
+                )
+        );
+
+        when(exchangeRateClient.getHistoricalRates("EUR", currencies, rateDate, rateDate))
+                .thenReturn(ratesForDifferentDate);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> currencyAnalysisService.analyze(
+                        "EUR",
+                        currencies,
+                        rateDate,
+                        averageStartDate,
+                        averageEndDate
+                )
+        );
+
+        verify(exchangeRateClient).getHistoricalRates("EUR", currencies, rateDate, rateDate);
+    }
+
+    @Test
     void shouldRejectFutureAverageDateRange() {
         assertThrows(
                 IllegalArgumentException.class,

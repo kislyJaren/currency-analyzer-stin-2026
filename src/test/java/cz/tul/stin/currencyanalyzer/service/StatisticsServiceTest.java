@@ -71,6 +71,33 @@ class StatisticsServiceTest {
     }
 
     @Test
+    void shouldRejectAverageRatesWhenHistoricalRatesAreNull() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> statisticsService.calculateAverageRates(
+                        null,
+                        List.of("USD")
+                )
+        );
+    }
+
+    @Test
+    void shouldRejectAverageRatesWhenNoSelectedRateExists() {
+        Map<LocalDate, Map<String, BigDecimal>> historicalRates = Map.of(
+                LocalDate.of(2026, 1, 1),
+                Map.of("CZK", new BigDecimal("24.00"))
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> statisticsService.calculateAverageRates(
+                        historicalRates,
+                        List.of("USD")
+                )
+        );
+    }
+
+    @Test
     void shouldIgnoreCurrenciesThatAreNotSelected() {
         Map<String, BigDecimal> rates = Map.of(
                 "USD", new BigDecimal("1.08"),

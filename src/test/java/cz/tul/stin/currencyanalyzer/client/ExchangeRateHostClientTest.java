@@ -181,6 +181,187 @@ class ExchangeRateHostClientTest {
     }
 
     @Test
+    void shouldUseUsdAsBaseCurrencyWithoutRequestingUsdRate() {
+        ExchangeRateApiProperties properties = new ExchangeRateApiProperties(
+                "https://api.example.test/",
+                "test-key"
+        );
+        ExchangeRateResponseMapper mapper = new ExchangeRateResponseMapper(new ObjectMapper());
+        ExchangeRateHostClient localClient = new ExchangeRateHostClient(
+                properties,
+                mapper,
+                httpResponseReader
+        );
+
+        String json = """
+            {
+              "success": true,
+              "source": "USD",
+              "date": "2026-05-03",
+              "quotes": {
+                "USDCZK": 20.50
+              }
+            }
+            """;
+
+        when(httpResponseReader.get(any(URI.class))).thenReturn(json);
+
+        LatestRatesDto result = localClient.getLatestRates("USD", List.of("USD", "CZK"));
+
+        assertEquals("USD", result.baseCurrency());
+        assertBigDecimalEquals("1", result.rates().get("USD"));
+        assertBigDecimalEquals("20.50", result.rates().get("CZK"));
+
+        ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
+        verify(httpResponseReader).get(uriCaptor.capture());
+
+        String uri = uriCaptor.getValue().toString();
+
+        assertTrue(uri.startsWith("https://api.example.test/live?"));
+        assertTrue(uri.contains("access_key=test-key"));
+        assertTrue(uri.contains("currencies=CZK"));
+        assertTrue(!uri.contains("source="));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenResponseDoesNotContainBaseCurrencyRate() {
+        String json = """
+            {
+              "success": true,
+              "source": "USD",
+              "date": "2026-05-03",
+              "quotes": {
+                "USDCZK": 20.50
+              }
+            }
+            """;
+
+        when(httpResponseReader.get(any(URI.class))).thenReturn(json);
+
+        ExchangeRateClientException exception = assertThrows(
+                ExchangeRateClientException.class,
+                () -> client.getLatestRates("EUR", List.of("CZK"))
+        );
+
+        assertEquals("API response does not contain rate for EUR.", exception.getMessage());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenResponseDoesNotContainTargetCurrencyRate() {
+        String json = """
+            {
+              "success": true,
+              "source": "USD",
+              "date": "2026-05-03",
+              "quotes": {
+                "USDEUR": 0.50
+              }
+            }
+            """;
+
+        when(httpResponseReader.get(any(URI.class))).thenReturn(json);
+
+        ExchangeRateClientException exception = assertThrows(
+                ExchangeRateClientException.class,
+                () -> client.getLatestRates("EUR", List.of("CZK"))
+        );
+
+        assertEquals("API response does not contain rate for CZK.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectBlankBaseCurrency() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> client.getLatestRates(" ", List.of("USD"))
+        );
+
+        verifyNoInteractions(httpResponseReader);
+    }
+
+    @Test
+    void shouldRejectBlankCurrencyInCurrencyList() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> client.getLatestRates("EUR", List.of("USD", " "))
+        );
+
+        verifyNoInteractions(httpResponseReader);
+    }
+
+    @Test
+    void shouldRejectMissingBaseUrl() {
+        ExchangeRateApiProperties properties = new ExchangeRateApiProperties(
+                "",
+                "test-key"
+        );
+        ExchangeRateResponseMapper mapper = new ExchangeRateResponseMapper(new ObjectMapper());
+        ExchangeRateHostClient localClient = new ExchangeRateHostClient(
+                properties,
+                mapper,
+                httpResponseReader
+        );
+
+        ExchangeRateClientException exception = assertThrows(
+                ExchangeRateClientException.class,
+                () -> localClient.getLatestRates("EUR", List.of("USD"))
+        );
+
+        assertEquals("ExchangeRate API base URL is not configured.", exception.getMessage());
+        verifyNoInteractions(httpResponseReader);
+    }
+
+    @Test
+    void shouldRejectNullCurrencyList() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> client.getLatestRates("EUR", null)
+        );
+
+        verifyNoInteractions(httpResponseReader);
+    }
+
+    @Test
+    void shouldRejectNullCurrencyInCurrencyList() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> client.getLatestRates("EUR", java.util.Arrays.asList("USD", null))
+        );
+
+        verifyNoInteractions(httpResponseReader);
+    }
+
+    @Test
+    void shouldRejectNullStartDate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> client.getHistoricalRates(
+                        "EUR",
+                        List.of("USD"),
+                        null,
+                        LocalDate.of(2026, 1, 2)
+                )
+        );
+
+        verifyNoInteractions(httpResponseReader);
+    }
+
+    @Test
+    void shouldRejectNullEndDate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> client.getHistoricalRates(
+                        "EUR",
+                        List.of("USD"),
+                        LocalDate.of(2026, 1, 1),
+                        null
+                )
+        );
+
+        verifyNoInteractions(httpResponseReader);
+    }
+
+    @Test
     void shouldRejectEmptyCurrencies() {
         assertThrows(
                 IllegalArgumentException.class,

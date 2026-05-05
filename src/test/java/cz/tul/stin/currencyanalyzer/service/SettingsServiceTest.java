@@ -43,6 +43,91 @@ class SettingsServiceTest {
     }
 
     @Test
+    void shouldUpdateExistingSettings() {
+        UserSettings existingSettings = new UserSettings(
+                1L,
+                "EUR",
+                "USD,CZK",
+                "CZ"
+        );
+
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(existingSettings));
+        when(userSettingsRepository.save(any(UserSettings.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserSettingsDto result = settingsService.saveSettings(
+                "usd",
+                List.of("czk", "gbp"),
+                "en"
+        );
+
+        assertEquals("USD", result.baseCurrency());
+        assertEquals(List.of("CZK", "GBP"), result.selectedCurrencies());
+        assertEquals("EN", result.language());
+
+        assertEquals("USD", existingSettings.getBaseCurrency());
+        assertEquals("CZK,GBP", existingSettings.getSelectedCurrencies());
+        assertEquals("EN", existingSettings.getLanguage());
+    }
+
+    @Test
+    void shouldUseDefaultLanguageWhenLanguageIsBlank() {
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userSettingsRepository.save(any(UserSettings.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserSettingsDto result = settingsService.saveSettings(
+                "EUR",
+                List.of("USD"),
+                " "
+        );
+
+        assertEquals("CZ", result.language());
+    }
+
+    @Test
+    void shouldReturnDefaultSelectedCurrenciesWhenStoredCurrenciesAreBlank() {
+        UserSettings storedSettings = new UserSettings(
+                1L,
+                "EUR",
+                "",
+                "CZ"
+        );
+
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(storedSettings));
+
+        UserSettingsDto result = settingsService.getSettings();
+
+        assertEquals("EUR", result.baseCurrency());
+        assertEquals(List.of("USD", "CZK", "GBP"), result.selectedCurrencies());
+        assertEquals("CZ", result.language());
+    }
+
+    @Test
+    void shouldRejectNullSelectedCurrencies() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> settingsService.saveSettings("EUR", null, "CZ")
+        );
+    }
+
+    @Test
+    void shouldRejectBlankCurrencyInSelectedCurrencies() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> settingsService.saveSettings("EUR", List.of("USD", " "), "CZ")
+        );
+    }
+
+    @Test
+    void shouldRejectUnsupportedSelectedCurrency() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> settingsService.saveSettings("EUR", List.of("USD", "XXX"), "CZ")
+        );
+    }
+
+    @Test
     void shouldReturnStoredSettings() {
         UserSettings storedSettings = new UserSettings(
                 1L,
