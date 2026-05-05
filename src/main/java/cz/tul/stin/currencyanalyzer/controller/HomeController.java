@@ -7,6 +7,7 @@ import cz.tul.stin.currencyanalyzer.service.CurrencyAnalysisService;
 import cz.tul.stin.currencyanalyzer.service.SettingsService;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -43,43 +44,51 @@ public class HomeController {
     public String dashboard(
             @RequestParam(required = false) String baseCurrency,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate rateDate,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate averageStartDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate averageEndDate,
             @RequestParam(defaultValue = "false") boolean analyze,
             Model model
     ) {
         UserSettingsDto settings = settingsService.getSettings();
 
         String selectedBaseCurrency = resolveBaseCurrency(baseCurrency, settings.baseCurrency());
-        LocalDate selectedStartDate = startDate == null ? LocalDate.now().minusDays(7) : startDate;
-        LocalDate selectedEndDate = endDate == null ? LocalDate.now() : endDate;
+        LocalDate selectedRateDate = rateDate == null ? LocalDate.now() : rateDate;
+        LocalDate selectedAverageStartDate = averageStartDate == null
+                ? LocalDate.now().minusDays(1)
+                : averageStartDate;
+        LocalDate selectedAverageEndDate = averageEndDate == null ? LocalDate.now() : averageEndDate;
         List<String> selectedCurrencies = settings.selectedCurrencies();
 
         model.addAttribute("baseCurrency", selectedBaseCurrency);
         model.addAttribute("availableCurrencies", settingsService.getAvailableCurrencies());
         model.addAttribute("selectedCurrencies", selectedCurrencies);
-        model.addAttribute("startDate", selectedStartDate);
-        model.addAttribute("endDate", selectedEndDate);
+        model.addAttribute("rateDate", selectedRateDate);
+        model.addAttribute("averageStartDate", selectedAverageStartDate);
+        model.addAttribute("averageEndDate", selectedAverageEndDate);
+        model.addAttribute("today", LocalDate.now());
         model.addAttribute("analysisAvailable", false);
-        model.addAttribute("latestDate", "-");
         model.addAttribute("strongestCurrency", "-");
         model.addAttribute("weakestCurrency", "-");
-        model.addAttribute("averageRate", "-");
+        model.addAttribute("dateRates", Map.of());
+        model.addAttribute("averageRates", Map.of());
 
         if (analyze) {
             CurrencyAnalysisResultDto result = currencyAnalysisService.analyze(
                     selectedBaseCurrency,
                     selectedCurrencies,
-                    selectedStartDate,
-                    selectedEndDate
+                    selectedRateDate,
+                    selectedAverageStartDate,
+                    selectedAverageEndDate
             );
 
             model.addAttribute("analysisAvailable", true);
-            model.addAttribute("latestDate", result.latestDate());
             model.addAttribute("strongestCurrency", formatCurrencyRate(result.strongestCurrency()));
             model.addAttribute("weakestCurrency", formatCurrencyRate(result.weakestCurrency()));
-            model.addAttribute("averageRate", result.averageRate().toPlainString());
+            model.addAttribute("dateRates", result.dateRates());
+            model.addAttribute("averageRates", result.averageRates());
         }
 
         return "dashboard";

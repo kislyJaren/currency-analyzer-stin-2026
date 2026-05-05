@@ -15,6 +15,28 @@ class StatisticsServiceTest {
     private final StatisticsService statisticsService = new StatisticsService();
 
     @Test
+    void shouldCalculateAverageRatesForEachSelectedCurrency() {
+        Map<LocalDate, Map<String, BigDecimal>> historicalRates = Map.of(
+                LocalDate.of(2026, 1, 1), Map.of(
+                        "USD", new BigDecimal("1.00"),
+                        "CZK", new BigDecimal("24.00")
+                ),
+                LocalDate.of(2026, 1, 2), Map.of(
+                        "USD", new BigDecimal("1.20"),
+                        "CZK", new BigDecimal("26.00")
+                )
+        );
+
+        Map<String, BigDecimal> result = statisticsService.calculateAverageRates(
+                historicalRates,
+                List.of("USD", "CZK")
+        );
+
+        assertEquals(new BigDecimal("1.100000"), result.get("USD"));
+        assertEquals(new BigDecimal("25.000000"), result.get("CZK"));
+    }
+
+    @Test
     void shouldFindStrongestCurrencyFromSelectedCurrencies() {
         Map<String, BigDecimal> rates = Map.of(
                 "USD", new BigDecimal("1.08"),

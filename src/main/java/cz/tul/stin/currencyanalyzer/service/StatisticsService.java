@@ -7,10 +7,54 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
+import java.util.LinkedHashMap;
 
 @Service
 public class StatisticsService {
 
+    public Map<String, BigDecimal> calculateAverageRates(
+            Map<LocalDate, Map<String, BigDecimal>> historicalRates,
+            List<String> selectedCurrencies
+    ) {
+        validateSelectedCurrencies(selectedCurrencies);
+
+        if (historicalRates == null || historicalRates.isEmpty()) {
+            throw new IllegalArgumentException("Historical rates must not be empty.");
+        }
+
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+
+        for (String currency : selectedCurrencies) {
+            BigDecimal sum = BigDecimal.ZERO;
+            int count = 0;
+
+            for (Map<String, BigDecimal> dailyRates : historicalRates.values()) {
+                if (dailyRates == null) {
+                    continue;
+                }
+
+                BigDecimal rate = dailyRates.get(currency);
+
+                if (rate != null) {
+                    sum = sum.add(rate);
+                    count++;
+                }
+            }
+
+            if (count > 0) {
+                result.put(
+                        currency,
+                        sum.divide(BigDecimal.valueOf(count), 6, RoundingMode.HALF_UP)
+                );
+            }
+        }
+
+        if (result.isEmpty()) {
+            throw new IllegalArgumentException("No rates available for selected currencies.");
+        }
+
+        return result;
+    }
     public CurrencyRateDto findStrongestCurrency(
             Map<String, BigDecimal> rates,
             List<String> selectedCurrencies

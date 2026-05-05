@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 import cz.tul.stin.currencyanalyzer.client.ExchangeRateClient;
 import cz.tul.stin.currencyanalyzer.dto.CurrencyAnalysisResultDto;
 import cz.tul.stin.currencyanalyzer.dto.HistoricalRatesDto;
-import cz.tul.stin.currencyanalyzer.dto.LatestRatesDto;
 import cz.tul.stin.currencyanalyzer.exception.ExchangeRateClientException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,9 +16,9 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(MockitoExtension.class)
 class CurrencyAnalysisServiceTest {
@@ -36,25 +35,30 @@ class CurrencyAnalysisServiceTest {
     }
 
     @Test
-    void shouldAnalyzeCurrencies() {
-        LocalDate startDate = LocalDate.of(2026, 1, 1);
-        LocalDate endDate = LocalDate.of(2026, 1, 2);
+    void shouldAnalyzeCurrenciesForSelectedDateAndAveragePeriod() {
+        LocalDate rateDate = LocalDate.of(2026, 5, 3);
+        LocalDate averageStartDate = LocalDate.of(2026, 1, 1);
+        LocalDate averageEndDate = LocalDate.of(2026, 1, 2);
         List<String> currencies = List.of("USD", "CZK", "GBP");
 
-        LatestRatesDto latestRates = new LatestRatesDto(
+        HistoricalRatesDto ratesForSelectedDate = new HistoricalRatesDto(
                 "EUR",
-                LocalDate.of(2026, 5, 3),
+                rateDate,
+                rateDate,
                 Map.of(
-                        "USD", new BigDecimal("1.08"),
-                        "CZK", new BigDecimal("24.50"),
-                        "GBP", new BigDecimal("0.85")
+                        rateDate,
+                        Map.of(
+                                "USD", new BigDecimal("1.08"),
+                                "CZK", new BigDecimal("24.50"),
+                                "GBP", new BigDecimal("0.85")
+                        )
                 )
         );
 
         HistoricalRatesDto historicalRates = new HistoricalRatesDto(
                 "EUR",
-                startDate,
-                endDate,
+                averageStartDate,
+                averageEndDate,
                 Map.of(
                         LocalDate.of(2026, 1, 1), Map.of(
                                 "USD", new BigDecimal("1.00"),
@@ -66,22 +70,24 @@ class CurrencyAnalysisServiceTest {
                 )
         );
 
-        when(exchangeRateClient.getLatestRates("EUR", currencies)).thenReturn(latestRates);
-        when(exchangeRateClient.getHistoricalRates("EUR", currencies, startDate, endDate))
+        when(exchangeRateClient.getHistoricalRates("EUR", currencies, rateDate, rateDate))
+                .thenReturn(ratesForSelectedDate);
+        when(exchangeRateClient.getHistoricalRates("EUR", currencies, averageStartDate, averageEndDate))
                 .thenReturn(historicalRates);
 
         CurrencyAnalysisResultDto result = currencyAnalysisService.analyze(
                 "eur",
                 List.of("usd", "czk", "gbp"),
-                startDate,
-                endDate
+                rateDate,
+                averageStartDate,
+                averageEndDate
         );
 
         assertEquals("EUR", result.baseCurrency());
         assertEquals(currencies, result.selectedCurrencies());
-        assertEquals(LocalDate.of(2026, 5, 3), result.latestDate());
-        assertEquals(startDate, result.startDate());
-        assertEquals(endDate, result.endDate());
+        assertEquals(rateDate, result.rateDate());
+        assertEquals(averageStartDate, result.averageStartDate());
+        assertEquals(averageEndDate, result.averageEndDate());
 
         assertEquals("CZK", result.strongestCurrency().currency());
         assertBigDecimalEquals("24.50", result.strongestCurrency().rate());
@@ -91,8 +97,47 @@ class CurrencyAnalysisServiceTest {
 
         assertBigDecimalEquals("8.733333", result.averageRate());
 
-        verify(exchangeRateClient).getLatestRates("EUR", currencies);
-        verify(exchangeRateClient).getHistoricalRates("EUR", currencies, startDate, endDate);
+        assertBigDecimalEquals("1.08", result.dateRates().get("USD"));
+        assertBigDecimalEquals("24.50", result.dateRates().get("CZK"));
+        assertBigDecimalEquals("0.85", result.dateRates().get("GBP"));
+
+        assertBigDecimalEquals("1.100000", result.averageRates().get("USD"));
+        assertBigDecimalEquals("24.000000", result.averageRates().get("CZK"));
+
+        verify(exchangeRateClient).getHistoricalRates("EUR", currencies, rateDate, rateDate);
+        verify(exchangeRateClient).getHistoricalRates("EUR", currencies, averageStartDate, averageEndDate);
+    }
+
+    @Test
+    void shouldRejectFutureRateDate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> currencyAnalysisService.analyze(
+                        "EUR",
+                        List.of("USD"),
+                        LocalDate.now().plusDays(1),
+                        LocalDate.now().minusDays(2),
+                        LocalDate.now().minusDays(1)
+                )
+        );
+
+        verifyNoInteractions(exchangeRateClient);
+    }
+
+    @Test
+    void shouldRejectFutureAverageDateRange() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> currencyAnalysisService.analyze(
+                        "EUR",
+                        List.of("USD"),
+                        LocalDate.now(),
+                        LocalDate.now().minusDays(1),
+                        LocalDate.now().plusDays(1)
+                )
+        );
+
+        verifyNoInteractions(exchangeRateClient);
     }
 
     @Test
@@ -102,6 +147,7 @@ class CurrencyAnalysisServiceTest {
                 () -> currencyAnalysisService.analyze(
                         "",
                         List.of("USD"),
+                        LocalDate.of(2026, 5, 3),
                         LocalDate.of(2026, 1, 1),
                         LocalDate.of(2026, 1, 2)
                 )
@@ -117,6 +163,7 @@ class CurrencyAnalysisServiceTest {
                 () -> currencyAnalysisService.analyze(
                         "EUR",
                         List.of(),
+                        LocalDate.of(2026, 5, 3),
                         LocalDate.of(2026, 1, 1),
                         LocalDate.of(2026, 1, 2)
                 )
@@ -126,12 +173,13 @@ class CurrencyAnalysisServiceTest {
     }
 
     @Test
-    void shouldRejectInvalidDateRange() {
+    void shouldRejectInvalidAverageDateRange() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> currencyAnalysisService.analyze(
                         "EUR",
                         List.of("USD"),
+                        LocalDate.of(2026, 5, 3),
                         LocalDate.of(2026, 1, 2),
                         LocalDate.of(2026, 1, 1)
                 )
@@ -142,11 +190,12 @@ class CurrencyAnalysisServiceTest {
 
     @Test
     void shouldPropagateExchangeRateClientException() {
-        LocalDate startDate = LocalDate.of(2026, 1, 1);
-        LocalDate endDate = LocalDate.of(2026, 1, 2);
+        LocalDate rateDate = LocalDate.of(2026, 5, 3);
+        LocalDate averageStartDate = LocalDate.of(2026, 1, 1);
+        LocalDate averageEndDate = LocalDate.of(2026, 1, 2);
         List<String> currencies = List.of("USD");
 
-        when(exchangeRateClient.getLatestRates("EUR", currencies))
+        when(exchangeRateClient.getHistoricalRates("EUR", currencies, rateDate, rateDate))
                 .thenThrow(new ExchangeRateClientException("API error."));
 
         ExchangeRateClientException exception = assertThrows(
@@ -154,13 +203,14 @@ class CurrencyAnalysisServiceTest {
                 () -> currencyAnalysisService.analyze(
                         "EUR",
                         currencies,
-                        startDate,
-                        endDate
+                        rateDate,
+                        averageStartDate,
+                        averageEndDate
                 )
         );
 
         assertEquals("API error.", exception.getMessage());
-        verify(exchangeRateClient).getLatestRates("EUR", currencies);
+        verify(exchangeRateClient).getHistoricalRates("EUR", currencies, rateDate, rateDate);
     }
 
     private static void assertBigDecimalEquals(String expected, BigDecimal actual) {

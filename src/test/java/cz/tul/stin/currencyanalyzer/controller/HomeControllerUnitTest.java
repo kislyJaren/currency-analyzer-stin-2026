@@ -13,6 +13,7 @@ import cz.tul.stin.currencyanalyzer.service.SettingsService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ui.ExtendedModelMap;
@@ -44,6 +45,7 @@ class HomeControllerUnitTest {
 
         String viewName = homeController.dashboard(
                 null,
+                LocalDate.of(2026, 5, 3),
                 LocalDate.of(2026, 1, 1),
                 LocalDate.of(2026, 1, 2),
                 false,
@@ -53,10 +55,14 @@ class HomeControllerUnitTest {
         assertEquals("dashboard", viewName);
         assertEquals("EUR", model.asMap().get("baseCurrency"));
         assertEquals(List.of("USD", "CZK"), model.asMap().get("selectedCurrencies"));
+        assertEquals(LocalDate.of(2026, 5, 3), model.asMap().get("rateDate"));
+        assertEquals(LocalDate.of(2026, 1, 1), model.asMap().get("averageStartDate"));
+        assertEquals(LocalDate.of(2026, 1, 2), model.asMap().get("averageEndDate"));
         assertEquals(false, model.asMap().get("analysisAvailable"));
         assertEquals("-", model.asMap().get("strongestCurrency"));
         assertEquals("-", model.asMap().get("weakestCurrency"));
-        assertEquals("-", model.asMap().get("averageRate"));
+        assertEquals(Map.of(), model.asMap().get("dateRates"));
+        assertEquals(Map.of(), model.asMap().get("averageRates"));
 
         verify(settingsService).getSettings();
         verify(settingsService).getAvailableCurrencies();
@@ -65,8 +71,9 @@ class HomeControllerUnitTest {
 
     @Test
     void dashboardShouldRunAnalysisWhenRequested() {
-        LocalDate startDate = LocalDate.of(2026, 1, 1);
-        LocalDate endDate = LocalDate.of(2026, 1, 2);
+        LocalDate rateDate = LocalDate.of(2026, 5, 3);
+        LocalDate averageStartDate = LocalDate.of(2026, 1, 1);
+        LocalDate averageEndDate = LocalDate.of(2026, 1, 2);
         List<String> selectedCurrencies = List.of("USD", "CZK");
 
         when(settingsService.getSettings()).thenReturn(new UserSettingsDto(
@@ -79,23 +86,37 @@ class HomeControllerUnitTest {
         CurrencyAnalysisResultDto analysisResult = new CurrencyAnalysisResultDto(
                 "USD",
                 selectedCurrencies,
-                LocalDate.of(2026, 5, 3),
-                startDate,
-                endDate,
+                rateDate,
+                averageStartDate,
+                averageEndDate,
                 new CurrencyRateDto("CZK", new BigDecimal("24.50")),
                 new CurrencyRateDto("USD", new BigDecimal("1.08")),
-                new BigDecimal("12.790000")
+                new BigDecimal("12.790000"),
+                Map.of(
+                        "USD", new BigDecimal("1.08"),
+                        "CZK", new BigDecimal("24.50")
+                ),
+                Map.of(
+                        "USD", new BigDecimal("1.100000"),
+                        "CZK", new BigDecimal("24.000000")
+                )
         );
 
-        when(currencyAnalysisService.analyze("USD", selectedCurrencies, startDate, endDate))
-                .thenReturn(analysisResult);
+        when(currencyAnalysisService.analyze(
+                "USD",
+                selectedCurrencies,
+                rateDate,
+                averageStartDate,
+                averageEndDate
+        )).thenReturn(analysisResult);
 
         Model model = new ExtendedModelMap();
 
         String viewName = homeController.dashboard(
                 "usd",
-                startDate,
-                endDate,
+                rateDate,
+                averageStartDate,
+                averageEndDate,
                 true,
                 model
         );
@@ -103,11 +124,31 @@ class HomeControllerUnitTest {
         assertEquals("dashboard", viewName);
         assertEquals("USD", model.asMap().get("baseCurrency"));
         assertEquals(true, model.asMap().get("analysisAvailable"));
-        assertEquals(LocalDate.of(2026, 5, 3), model.asMap().get("latestDate"));
         assertEquals("CZK (24.50)", model.asMap().get("strongestCurrency"));
         assertEquals("USD (1.08)", model.asMap().get("weakestCurrency"));
-        assertEquals("12.790000", model.asMap().get("averageRate"));
 
-        verify(currencyAnalysisService).analyze("USD", selectedCurrencies, startDate, endDate);
+        assertEquals(
+                Map.of(
+                        "USD", new BigDecimal("1.08"),
+                        "CZK", new BigDecimal("24.50")
+                ),
+                model.asMap().get("dateRates")
+        );
+
+        assertEquals(
+                Map.of(
+                        "USD", new BigDecimal("1.100000"),
+                        "CZK", new BigDecimal("24.000000")
+                ),
+                model.asMap().get("averageRates")
+        );
+
+        verify(currencyAnalysisService).analyze(
+                "USD",
+                selectedCurrencies,
+                rateDate,
+                averageStartDate,
+                averageEndDate
+        );
     }
 }

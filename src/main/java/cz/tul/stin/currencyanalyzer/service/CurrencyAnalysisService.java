@@ -4,10 +4,10 @@ import cz.tul.stin.currencyanalyzer.client.ExchangeRateClient;
 import cz.tul.stin.currencyanalyzer.dto.CurrencyAnalysisResultDto;
 import cz.tul.stin.currencyanalyzer.dto.CurrencyRateDto;
 import cz.tul.stin.currencyanalyzer.dto.HistoricalRatesDto;
-import cz.tul.stin.currencyanalyzer.dto.LatestRatesDto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,32 +27,41 @@ public class CurrencyAnalysisService {
     public CurrencyAnalysisResultDto analyze(
             String baseCurrency,
             List<String> selectedCurrencies,
-            LocalDate startDate,
-            LocalDate endDate
+            LocalDate rateDate,
+            LocalDate averageStartDate,
+            LocalDate averageEndDate
     ) {
         String normalizedBaseCurrency = normalizeBaseCurrency(baseCurrency);
         List<String> normalizedCurrencies = normalizeCurrencies(selectedCurrencies);
-        validateDateRange(startDate, endDate);
+        validateDate(rateDate);
+        validateDateRange(averageStartDate, averageEndDate);
 
-        LatestRatesDto latestRates = exchangeRateClient.getLatestRates(
+        HistoricalRatesDto ratesForSelectedDate = exchangeRateClient.getHistoricalRates(
                 normalizedBaseCurrency,
-                normalizedCurrencies
+                normalizedCurrencies,
+                rateDate,
+                rateDate
+        );
+
+        Map<String, BigDecimal> dateRates = getRatesForDate(
+                ratesForSelectedDate.rates(),
+                rateDate
         );
 
         HistoricalRatesDto historicalRates = exchangeRateClient.getHistoricalRates(
                 normalizedBaseCurrency,
                 normalizedCurrencies,
-                startDate,
-                endDate
+                averageStartDate,
+                averageEndDate
         );
 
         CurrencyRateDto strongestCurrency = statisticsService.findStrongestCurrency(
-                latestRates.rates(),
+                dateRates,
                 normalizedCurrencies
         );
 
         CurrencyRateDto weakestCurrency = statisticsService.findWeakestCurrency(
-                latestRates.rates(),
+                dateRates,
                 normalizedCurrencies
         );
 
@@ -61,16 +70,36 @@ public class CurrencyAnalysisService {
                 normalizedCurrencies
         );
 
+        Map<String, BigDecimal> averageRates = statisticsService.calculateAverageRates(
+                historicalRates.rates(),
+                normalizedCurrencies
+        );
+
         return new CurrencyAnalysisResultDto(
                 normalizedBaseCurrency,
                 normalizedCurrencies,
-                latestRates.date(),
-                startDate,
-                endDate,
+                rateDate,
+                averageStartDate,
+                averageEndDate,
                 strongestCurrency,
                 weakestCurrency,
-                averageRate
+                averageRate,
+                dateRates,
+                averageRates
         );
+    }
+
+    private Map<String, BigDecimal> getRatesForDate(
+            Map<LocalDate, Map<String, BigDecimal>> rates,
+            LocalDate date
+    ) {
+        Map<String, BigDecimal> dateRates = rates.get(date);
+
+        if (dateRates == null || dateRates.isEmpty()) {
+            throw new IllegalArgumentException("No rates available for selected date.");
+        }
+
+        return dateRates;
     }
 
     private String normalizeBaseCurrency(String baseCurrency) {
@@ -106,9 +135,25 @@ public class CurrencyAnalysisService {
         return currency.trim().toUpperCase();
     }
 
+    private void validateDate(LocalDate date) {
+        if (date == null) {
+            throw new IllegalArgumentException("Rate date must not be empty.");
+        }
+
+        if (date.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Rate date must not be in the future");
+        }
+    }
+
     private void validateDateRange(LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null) {
             throw new IllegalArgumentException("Start date and end date must not be empty.");
+        }
+
+        LocalDate today = LocalDate.now();
+
+        if (startDate.isAfter(today) || endDate.isAfter(today)) {
+            throw new IllegalArgumentException("Average date range must not contain future dates.");
         }
 
         if (startDate.isAfter(endDate)) {
