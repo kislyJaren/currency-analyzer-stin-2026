@@ -26,10 +26,17 @@
         <p class="muted">Analýza měnových kurzů podle vybrané základní měny.</p>
 
         <form class="grid-form" method="get" th:action="@{/dashboard}">
+            <input type="hidden" name="analyze" value="true">
+
             <div>
                 <label for="baseCurrency">Základní měna</label>
                 <select id="baseCurrency" name="baseCurrency">
-                    <option th:text="${baseCurrency}" selected>EUR</option>
+                    <option th:each="currency : ${availableCurrencies}"
+                            th:value="${currency}"
+                            th:text="${currency}"
+                            th:selected="${currency == baseCurrency}">
+                        EUR
+                    </option>
                 </select>
             </div>
 
@@ -51,6 +58,8 @@
 
     <section class="card">
         <h2>Vybrané měny</h2>
+        <p class="muted">Měny se načítají z uloženého nastavení uživatele.</p>
+
         <div class="tag-list">
             <span class="tag" th:each="currency : ${selectedCurrencies}" th:text="${currency}">USD</span>
         </div>
@@ -58,19 +67,28 @@
 
     <section class="card">
         <h2>Výsledky</h2>
+
+        <div th:if="${!analysisAvailable}" class="alert alert-success">
+            Zvolte období a klikněte na tlačítko Načíst data.
+        </div>
+
         <table>
             <tbody>
             <tr>
+                <th>Datum aktuálního kurzu</th>
+                <td th:text="${latestDate}">-</td>
+            </tr>
+            <tr>
                 <th>Nejsilnější měna</th>
-                <td th:text="${strongestCurrency}">USD</td>
+                <td th:text="${strongestCurrency}">-</td>
             </tr>
             <tr>
                 <th>Nejslabší měna</th>
-                <td th:text="${weakestCurrency}">CZK</td>
+                <td th:text="${weakestCurrency}">-</td>
             </tr>
             <tr>
-                <th>Průměr kurzu</th>
-                <td th:text="${averageRate}">1.12</td>
+                <th>Průměr kurzu za období</th>
+                <td th:text="${averageRate}">-</td>
             </tr>
             </tbody>
         </table>
@@ -79,7 +97,7 @@
     <section class="card">
         <h2>Graf</h2>
         <div class="chart-placeholder">
-            Graf bude doplněn po implementaci historických dat.
+            Graf je připraven jako rozšíření nad historickými daty.
         </div>
     </section>
 </main>
