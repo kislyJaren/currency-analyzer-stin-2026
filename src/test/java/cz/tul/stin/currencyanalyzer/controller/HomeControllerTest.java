@@ -23,6 +23,12 @@ class HomeControllerTest {
     private MockMvc mockMvc;
 
     @Test
+    void faviconShouldBeAccessibleWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/favicon.ico"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void loginPageShouldBeAccessibleWithoutAuthentication() throws Exception {
         mockMvc.perform(get("/login"))
                 .andExpect(status().isOk())

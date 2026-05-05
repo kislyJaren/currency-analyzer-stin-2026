@@ -28,6 +28,8 @@ public class JdkHttpResponseReader implements HttpResponseReader {
     public String get(URI uri) {
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .timeout(Duration.ofSeconds(10))
+                .header("Accept", "application/json")
+                .header("User-Agent", "CurrencyAnalyzer-STIN/1.0")
                 .GET()
                 .build();
 
@@ -38,8 +40,18 @@ public class JdkHttpResponseReader implements HttpResponseReader {
             );
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String retryAfter = response.headers()
+                        .firstValue("Retry-After")
+                        .map(value -> " Retry after: " + value + ".")
+                        .orElse("");
+
                 throw new ExchangeRateClientException(
-                        "ExchangeRate API returned HTTP status " + response.statusCode() + "."
+                        "ExchangeRate API returned HTTP status "
+                                + response.statusCode()
+                                + "."
+                                + retryAfter
+                                + " Response body: "
+                                + response.body()
                 );
             }
 
