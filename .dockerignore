@@ -1,0 +1,7 @@
+.git
+.idea
+target
+data
+*.log
+mvn-test.log
+.DS_Store

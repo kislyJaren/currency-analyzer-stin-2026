@@ -1,12 +1,16 @@
+server:
+  address: 0.0.0.0
+  port: ${PORT:8080}
+
 spring:
   application:
     name: currency-analyzer
 
   datasource:
-    url: jdbc:h2:file:./data/currency-analyzer
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/currency-analyzer}
     driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
 
   jpa:
     hibernate:
@@ -15,7 +19,7 @@ spring:
 
   h2:
     console:
-      enabled: true
+      enabled: ${H2_CONSOLE_ENABLED:true}
       path: /h2-console
 
 app:
@@ -24,5 +28,5 @@ app:
     password: ${APP_PASSWORD:password}
 
   exchange-rate:
-    base-url: https://api.exchangerate.host
+    base-url: ${EXCHANGE_RATE_BASE_URL:https://api.exchangerate.host}
     access-key: ${EXCHANGE_RATE_API_KEY:}
