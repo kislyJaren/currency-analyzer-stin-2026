@@ -85,7 +85,6 @@ jobs:
               summary.write(f"| Branches | {branch_ratio:.2f}% | {branch_covered} | {branch_missed} |\n")
               summary.write(f"| Lines | {line_ratio:.2f}% | {line_covered} | {line_missed} |\n")
               summary.write("\n")
-              summary.write("Required branch coverage: **80%**.\n")
           PY
 
       - name: Upload JaCoCo HTML report
