@@ -10,10 +10,10 @@ import cz.tul.stin.currencyanalyzer.entity.ApplicationLog;
 import cz.tul.stin.currencyanalyzer.repository.ApplicationLogRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(MockitoExtension.class)
 class ApplicationLogServiceTest {
@@ -58,6 +58,42 @@ class ApplicationLogServiceTest {
     }
 
     @Test
+    void shouldSaveInfoLogWithDetail() {
+        when(applicationLogRepository.save(any(ApplicationLog.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplicationLog result = applicationLogService.logInfo(
+                "Settings",
+                "Ulozeno nastaveni uzivatele.",
+                "baseCurrency=EUR; selectedCurrencies=CZK; language=CZ"
+        );
+
+        assertEquals("INFO", result.getLevel());
+        assertEquals("Settings", result.getSource());
+        assertEquals("Ulozeno nastaveni uzivatele.", result.getMessage());
+        assertEquals("baseCurrency=EUR; selectedCurrencies=CZK; language=CZ", result.getDetail());
+        assertNotNull(result.getCreatedAt());
+    }
+
+    @Test
+    void shouldSaveWarningLogWithDetail() {
+        when(applicationLogRepository.save(any(ApplicationLog.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplicationLog result = applicationLogService.logWarning(
+                "Validation",
+                "Neplatny pozadavek uzivatele.",
+                "Rate date must not be in the future."
+        );
+
+        assertEquals("WARN", result.getLevel());
+        assertEquals("Validation", result.getSource());
+        assertEquals("Neplatny pozadavek uzivatele.", result.getMessage());
+        assertEquals("Rate date must not be in the future.", result.getDetail());
+        assertNotNull(result.getCreatedAt());
+    }
+
+    @Test
     void shouldUseDefaultValuesForEmptyInput() {
         when(applicationLogRepository.save(any(ApplicationLog.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -65,11 +101,11 @@ class ApplicationLogServiceTest {
         ApplicationLog result = applicationLogService.logError(
                 "",
                 "",
-                null
+                (Throwable) null
         );
 
         assertEquals("ERROR", result.getLevel());
         assertEquals("unknown", result.getSource());
-        assertEquals("Unexpected application error.", result.getMessage());
+        assertEquals("Unexpected application event.", result.getMessage());
     }
 }

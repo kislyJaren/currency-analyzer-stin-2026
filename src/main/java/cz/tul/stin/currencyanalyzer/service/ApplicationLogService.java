@@ -10,24 +10,57 @@ import org.springframework.stereotype.Service;
 @Service
 public class ApplicationLogService {
 
+    private static final int MAX_MESSAGE_LENGTH = 1000;
+
     private final ApplicationLogRepository applicationLogRepository;
 
     public ApplicationLogService(ApplicationLogRepository applicationLogRepository) {
         this.applicationLogRepository = applicationLogRepository;
     }
 
+    public ApplicationLog logInfo(String source, String message) {
+        return logInfo(source, message, null);
+    }
+
+    public ApplicationLog logInfo(String source, String message, String detail) {
+        return saveLog("INFO", source, message, detail);
+    }
+
+    public ApplicationLog logWarning(String source, String message, String detail) {
+        return saveLog("WARN", source, message, detail);
+    }
+
     public ApplicationLog logError(String source, String message, Throwable exception) {
         String detail = exception == null ? null : stackTraceToString(exception);
 
+        return saveLog(
+                "ERROR",
+                source,
+                message,
+                detail
+        );
+    }
+
+    private ApplicationLog saveLog(String level, String source, String message, String detail) {
         ApplicationLog log = new ApplicationLog(
                 LocalDateTime.now(),
-                "ERROR",
+                normalizeText(level, "INFO"),
                 normalizeText(source, "unknown"),
-                normalizeText(message, "Unexpected application error."),
-                detail
+                normalizeMessage(message),
+                normalizeDetail(detail)
         );
 
         return applicationLogRepository.save(log);
+    }
+
+    private String normalizeMessage(String message) {
+        String normalizedMessage = normalizeText(message, "Unexpected application event.");
+
+        if (normalizedMessage.length() <= MAX_MESSAGE_LENGTH) {
+            return normalizedMessage;
+        }
+
+        return normalizedMessage.substring(0, MAX_MESSAGE_LENGTH);
     }
 
     private String normalizeText(String value, String defaultValue) {
@@ -36,6 +69,14 @@ public class ApplicationLogService {
         }
 
         return value.trim();
+    }
+
+    private String normalizeDetail(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return null;
+        }
+
+        return detail.trim();
     }
 
     private String stackTraceToString(Throwable exception) {

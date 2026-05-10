@@ -15,13 +15,16 @@ public class CurrencyAnalysisService {
 
     private final ExchangeRateClient exchangeRateClient;
     private final StatisticsService statisticsService;
+    private final ApplicationLogService applicationLogService;
 
     public CurrencyAnalysisService(
             ExchangeRateClient exchangeRateClient,
-            StatisticsService statisticsService
+            StatisticsService statisticsService,
+            ApplicationLogService applicationLogService
     ) {
         this.exchangeRateClient = exchangeRateClient;
         this.statisticsService = statisticsService;
+        this.applicationLogService = applicationLogService;
     }
 
     public CurrencyAnalysisResultDto analyze(
@@ -35,6 +38,16 @@ public class CurrencyAnalysisService {
         List<String> normalizedCurrencies = normalizeCurrencies(selectedCurrencies);
         validateDate(rateDate);
         validateDateRange(averageStartDate, averageEndDate);
+
+        applicationLogService.logInfo(
+                "Analysis",
+                "Spustena analyza menovych kurzu.",
+                "baseCurrency=" + normalizedBaseCurrency
+                        + "; selectedCurrencies=" + formatCurrencies(normalizedCurrencies)
+                        + "; rateDate=" + rateDate
+                        + "; averageStartDate=" + averageStartDate
+                        + "; averageEndDate=" + averageEndDate
+        );
 
         HistoricalRatesDto ratesForSelectedDate = exchangeRateClient.getHistoricalRates(
                 normalizedBaseCurrency,
@@ -73,6 +86,20 @@ public class CurrencyAnalysisService {
         Map<String, BigDecimal> averageRates = statisticsService.calculateAverageRates(
                 historicalRates.rates(),
                 normalizedCurrencies
+        );
+
+        applicationLogService.logInfo(
+                "Analysis",
+                "Analyza menovych kurzu byla dokoncena.",
+                "baseCurrency=" + normalizedBaseCurrency
+                        + "; selectedCurrencies=" + formatCurrencies(normalizedCurrencies)
+                        + "; rateDate=" + rateDate
+                        + "; averageStartDate=" + averageStartDate
+                        + "; averageEndDate=" + averageEndDate
+                        + "; dateRatesCount=" + dateRates.size()
+                        + "; averageRatesCount=" + averageRates.size()
+                        + "; highestNominalRate=" + strongestCurrency.currency()
+                        + "; lowestNominalRate=" + weakestCurrency.currency()
         );
 
         return new CurrencyAnalysisResultDto(
@@ -159,5 +186,9 @@ public class CurrencyAnalysisService {
         if (startDate.isAfter(endDate)) {
             throw new IllegalArgumentException("Start date must not be after end date.");
         }
+    }
+
+    private String formatCurrencies(List<String> currencies) {
+        return String.join(",", currencies);
     }
 }

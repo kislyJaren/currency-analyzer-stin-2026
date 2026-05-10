@@ -26,12 +26,19 @@ class CurrencyAnalysisServiceTest {
     @Mock
     private ExchangeRateClient exchangeRateClient;
 
+    @Mock
+    private ApplicationLogService applicationLogService;
+
     private CurrencyAnalysisService currencyAnalysisService;
 
     @BeforeEach
     void setUp() {
         StatisticsService statisticsService = new StatisticsService();
-        currencyAnalysisService = new CurrencyAnalysisService(exchangeRateClient, statisticsService);
+        currencyAnalysisService = new CurrencyAnalysisService(
+                exchangeRateClient,
+                statisticsService,
+                applicationLogService
+        );
     }
 
     @Test
@@ -106,6 +113,18 @@ class CurrencyAnalysisServiceTest {
 
         verify(exchangeRateClient).getHistoricalRates("EUR", currencies, rateDate, rateDate);
         verify(exchangeRateClient).getHistoricalRates("EUR", currencies, averageStartDate, averageEndDate);
+
+        verify(applicationLogService).logInfo(
+                "Analysis",
+                "Spustena analyza menovych kurzu.",
+                "baseCurrency=EUR; selectedCurrencies=USD,CZK,GBP; rateDate=2026-05-03; averageStartDate=2026-01-01; averageEndDate=2026-01-02"
+        );
+
+        verify(applicationLogService).logInfo(
+                "Analysis",
+                "Analyza menovych kurzu byla dokoncena.",
+                "baseCurrency=EUR; selectedCurrencies=USD,CZK,GBP; rateDate=2026-05-03; averageStartDate=2026-01-01; averageEndDate=2026-01-02; dateRatesCount=3; averageRatesCount=2; highestNominalRate=CZK; lowestNominalRate=GBP"
+        );
     }
 
     @Test

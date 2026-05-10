@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
@@ -29,7 +28,7 @@ public class ApplicationLog {
     @Column(nullable = false, length = 1000)
     private String message;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String detail;
 
     protected ApplicationLog() {

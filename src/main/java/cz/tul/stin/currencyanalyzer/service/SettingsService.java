@@ -19,9 +19,14 @@ public class SettingsService {
     );
 
     private final UserSettingsRepository userSettingsRepository;
+    private final ApplicationLogService applicationLogService;
 
-    public SettingsService(UserSettingsRepository userSettingsRepository) {
+    public SettingsService(
+            UserSettingsRepository userSettingsRepository,
+            ApplicationLogService applicationLogService
+    ) {
         this.userSettingsRepository = userSettingsRepository;
+        this.applicationLogService = applicationLogService;
     }
 
     public UserSettingsDto getSettings() {
@@ -52,6 +57,14 @@ public class SettingsService {
         settings.setLanguage(normalizedLanguage);
 
         UserSettings savedSettings = userSettingsRepository.save(settings);
+
+        applicationLogService.logInfo(
+                "Settings",
+                "Ulozeno nastaveni uzivatele.",
+                "baseCurrency=" + normalizedBaseCurrency
+                        + "; selectedCurrencies=" + joinCurrencies(normalizedSelectedCurrencies)
+                        + "; language=" + normalizedLanguage
+        );
 
         return toDto(savedSettings);
     }

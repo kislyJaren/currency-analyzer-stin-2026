@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(MockitoExtension.class)
 class SettingsServiceTest {
@@ -24,11 +24,14 @@ class SettingsServiceTest {
     @Mock
     private UserSettingsRepository userSettingsRepository;
 
+    @Mock
+    private ApplicationLogService applicationLogService;
+
     private SettingsService settingsService;
 
     @BeforeEach
     void setUp() {
-        settingsService = new SettingsService(userSettingsRepository);
+        settingsService = new SettingsService(userSettingsRepository, applicationLogService);
     }
 
     @Test
@@ -68,6 +71,12 @@ class SettingsServiceTest {
         assertEquals("USD", existingSettings.getBaseCurrency());
         assertEquals("CZK,GBP", existingSettings.getSelectedCurrencies());
         assertEquals("EN", existingSettings.getLanguage());
+
+        verify(applicationLogService).logInfo(
+                "Settings",
+                "Ulozeno nastaveni uzivatele.",
+                "baseCurrency=USD; selectedCurrencies=CZK,GBP; language=EN"
+        );
     }
 
     @Test
@@ -83,6 +92,12 @@ class SettingsServiceTest {
         );
 
         assertEquals("CZ", result.language());
+
+        verify(applicationLogService).logInfo(
+                "Settings",
+                "Ulozeno nastaveni uzivatele.",
+                "baseCurrency=EUR; selectedCurrencies=USD; language=CZ"
+        );
     }
 
     @Test
@@ -169,6 +184,12 @@ class SettingsServiceTest {
         assertEquals("EUR", savedSettings.getBaseCurrency());
         assertEquals("USD,CZK", savedSettings.getSelectedCurrencies());
         assertEquals("CZ", savedSettings.getLanguage());
+
+        verify(applicationLogService).logInfo(
+                "Settings",
+                "Ulozeno nastaveni uzivatele.",
+                "baseCurrency=EUR; selectedCurrencies=USD,CZK; language=CZ"
+        );
     }
 
     @Test
