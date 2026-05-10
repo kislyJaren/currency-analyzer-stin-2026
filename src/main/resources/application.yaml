@@ -17,10 +17,6 @@ spring:
       ddl-auto: update
     open-in-view: false
 
-  h2:
-    console:
-      enabled: false
-
 app:
   security:
     username: ${APP_USERNAME:user}
