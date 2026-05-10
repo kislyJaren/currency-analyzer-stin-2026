@@ -32,3 +32,66 @@ jobs:
 
       - name: Run tests and coverage check
         run: ./mvnw verify
+
+      - name: Add JaCoCo coverage summary
+        if: always()
+        run: |
+          python3 <<'PY'
+          import csv
+          from pathlib import Path
+          import os
+
+          report = Path("target/site/jacoco/jacoco.csv")
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+          if not report.exists():
+              with summary_path.open("a", encoding="utf-8") as summary:
+                  summary.write("## JaCoCo coverage\n\n")
+                  summary.write("JaCoCo CSV report was not found.\n")
+              raise SystemExit(0)
+
+          instruction_missed = 0
+          instruction_covered = 0
+          branch_missed = 0
+          branch_covered = 0
+          line_missed = 0
+          line_covered = 0
+
+          with report.open("r", encoding="utf-8") as file:
+              reader = csv.DictReader(file)
+              for row in reader:
+                  instruction_missed += int(row["INSTRUCTION_MISSED"])
+                  instruction_covered += int(row["INSTRUCTION_COVERED"])
+                  branch_missed += int(row["BRANCH_MISSED"])
+                  branch_covered += int(row["BRANCH_COVERED"])
+                  line_missed += int(row["LINE_MISSED"])
+                  line_covered += int(row["LINE_COVERED"])
+
+          def ratio(covered, missed):
+              total = covered + missed
+              if total == 0:
+                  return 100.0
+              return covered / total * 100
+
+          instruction_ratio = ratio(instruction_covered, instruction_missed)
+          branch_ratio = ratio(branch_covered, branch_missed)
+          line_ratio = ratio(line_covered, line_missed)
+
+          with summary_path.open("a", encoding="utf-8") as summary:
+              summary.write("## JaCoCo coverage\n\n")
+              summary.write("| Counter | Coverage | Covered | Missed |\n")
+              summary.write("| --- | ---: | ---: | ---: |\n")
+              summary.write(f"| Instructions | {instruction_ratio:.2f}% | {instruction_covered} | {instruction_missed} |\n")
+              summary.write(f"| Branches | {branch_ratio:.2f}% | {branch_covered} | {branch_missed} |\n")
+              summary.write(f"| Lines | {line_ratio:.2f}% | {line_covered} | {line_missed} |\n")
+              summary.write("\n")
+              summary.write("Required branch coverage: **80%**.\n")
+          PY
+
+      - name: Upload JaCoCo HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-html-report
+          path: target/site/jacoco/
+          retention-days: 7
