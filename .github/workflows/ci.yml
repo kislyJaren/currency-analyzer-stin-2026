@@ -16,6 +16,21 @@ jobs:
     name: Maven verify
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: currency_analyzer
+          POSTGRES_USER: currency_user
+          POSTGRES_PASSWORD: currency_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U currency_user -d currency_analyzer"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,6 +47,11 @@ jobs:
 
       - name: Run tests and coverage check
         run: ./mvnw verify
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/currency_analyzer
+          SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+          SPRING_DATASOURCE_USERNAME: currency_user
+          SPRING_DATASOURCE_PASSWORD: currency_password
 
       - name: Add JaCoCo coverage summary
         if: always()
@@ -73,18 +93,13 @@ jobs:
                   return 100.0
               return covered / total * 100
 
-          instruction_ratio = ratio(instruction_covered, instruction_missed)
-          branch_ratio = ratio(branch_covered, branch_missed)
-          line_ratio = ratio(line_covered, line_missed)
-
           with summary_path.open("a", encoding="utf-8") as summary:
               summary.write("## JaCoCo coverage\n\n")
               summary.write("| Counter | Coverage | Covered | Missed |\n")
               summary.write("| --- | ---: | ---: | ---: |\n")
-              summary.write(f"| Instructions | {instruction_ratio:.2f}% | {instruction_covered} | {instruction_missed} |\n")
-              summary.write(f"| Branches | {branch_ratio:.2f}% | {branch_covered} | {branch_missed} |\n")
-              summary.write(f"| Lines | {line_ratio:.2f}% | {line_covered} | {line_missed} |\n")
-              summary.write("\n")
+              summary.write(f"| Instructions | {ratio(instruction_covered, instruction_missed):.2f}% | {instruction_covered} | {instruction_missed} |\n")
+              summary.write(f"| Branches | {ratio(branch_covered, branch_missed):.2f}% | {branch_covered} | {branch_missed} |\n")
+              summary.write(f"| Lines | {ratio(line_covered, line_missed):.2f}% | {line_covered} | {line_missed} |\n")
           PY
 
       - name: Upload JaCoCo HTML report
