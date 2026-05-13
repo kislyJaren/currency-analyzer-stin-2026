@@ -4,10 +4,8 @@ import cz.tul.stin.currencyanalyzer.service.SettingsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Locale;
-import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.LocaleResolver;
 
-@Component("localeResolver")
 public class UserSettingsLocaleResolver implements LocaleResolver {
 
     private static final Locale CZECH_LOCALE = Locale.forLanguageTag("cs");
