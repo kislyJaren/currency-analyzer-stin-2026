@@ -1,38 +1,38 @@
 <!DOCTYPE html>
-<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<html lang="cs" th:lang="#{html.lang}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Currency Analyzer - Nastavení</title>
+    <title th:text="#{settings.pageTitle}">Currency Analyzer - Nastavení</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
 <header class="topbar">
     <div>
-        <strong>Currency Analyzer</strong>
+        <strong th:text="#{app.name}">Currency Analyzer</strong>
     </div>
     <nav>
-        <a th:href="@{/dashboard}">Dashboard</a>
-        <a th:href="@{/settings}">Nastavení</a>
+        <a th:href="@{/dashboard}" th:text="#{nav.dashboard}">Dashboard</a>
+        <a th:href="@{/settings}" th:text="#{nav.settings}">Nastavení</a>
         <form th:action="@{/logout}" method="post" class="logout-form">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-            <button type="submit" class="link-button">Odhlásit</button>
+            <button type="submit" class="link-button" th:text="#{nav.logout}">Odhlásit</button>
         </form>
     </nav>
 </header>
 
 <main class="page">
     <section class="card">
-        <h1>Nastavení</h1>
-        <p class="muted">Uložené preference se ukládají do databáze.</p>
+        <h1 th:text="#{settings.title}">Nastavení</h1>
+        <p class="muted" th:text="#{settings.description}">Uložené preference se ukládají do databáze.</p>
 
-        <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}">
+        <div th:if="${settingsSaved}" class="alert alert-success" th:text="#{settings.saved}">
             Nastavení bylo uloženo.
         </div>
 
         <form class="form" method="post" th:action="@{/settings}">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
-            <label for="baseCurrency">Výchozí základní měna</label>
+            <label for="baseCurrency" th:text="#{settings.baseCurrency}">Výchozí základní měna</label>
             <select id="baseCurrency" name="baseCurrency">
                 <option th:each="currency : ${availableCurrencies}"
                         th:value="${currency}"
@@ -43,7 +43,7 @@
             </select>
 
             <fieldset>
-                <legend>Preferované měny</legend>
+                <legend th:text="#{settings.selectedCurrencies}">Preferované měny</legend>
 
                 <label class="checkbox-row" th:each="currency : ${availableCurrencies}">
                     <input type="checkbox"
@@ -54,7 +54,13 @@
                 </label>
             </fieldset>
 
-            <button type="submit">Uložit nastavení</button>
+            <label for="language" th:text="#{settings.language}">Jazyk</label>
+            <select id="language" name="language">
+                <option value="CZ" th:selected="${language == 'CZ'}" th:text="#{settings.language.cz}">Čeština</option>
+                <option value="EN" th:selected="${language == 'EN'}" th:text="#{settings.language.en}">English</option>
+            </select>
+
+            <button type="submit" th:text="#{settings.save}">Uložit nastavení</button>
         </form>
     </section>
 </main>

@@ -1,37 +1,37 @@
 <!DOCTYPE html>
-<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<html lang="cs" th:lang="#{html.lang}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Currency Analyzer - Login</title>
+    <title th:text="#{login.pageTitle}">Currency Analyzer - Login</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
 <main class="auth-container">
     <section class="card auth-card">
-        <h1>Currency Analyzer</h1>
-        <p class="muted">Přihlášení do aplikace</p>
+        <h1 th:text="#{app.name}">Currency Analyzer</h1>
+        <p class="muted" th:text="#{login.subtitle}">Přihlášení do aplikace</p>
 
-        <div th:if="${param.error}" class="alert alert-error">
+        <div th:if="${param.error}" class="alert alert-error" th:text="#{login.error}">
             Neplatné uživatelské jméno nebo heslo.
         </div>
 
-        <div th:if="${param.logout}" class="alert alert-success">
+        <div th:if="${param.logout}" class="alert alert-success" th:text="#{login.logout}">
             Byl jste odhlášen.
         </div>
 
         <form th:action="@{/login}" method="post" class="form">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
-            <label for="username">Uživatelské jméno</label>
+            <label for="username" th:text="#{login.username}">Uživatelské jméno</label>
             <input id="username" name="username" type="text" autocomplete="username" required>
 
-            <label for="password">Heslo</label>
+            <label for="password" th:text="#{login.password}">Heslo</label>
             <input id="password" name="password" type="password" autocomplete="current-password" required>
 
-            <button type="submit">Přihlásit</button>
+            <button type="submit" th:text="#{login.submit}">Přihlásit</button>
         </form>
 
-        <p class="hint">Výchozí lokální účet: user / password</p>
+        <p class="hint" th:text="#{login.hint}">Výchozí lokální účet: user / password</p>
     </section>
 </main>
 </body>

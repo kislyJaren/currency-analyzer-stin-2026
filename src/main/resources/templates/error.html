@@ -1,25 +1,26 @@
 <!DOCTYPE html>
-<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<html lang="cs" th:lang="#{html.lang}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Currency Analyzer - Error</title>
+    <title th:text="#{error.pageTitle}">Currency Analyzer - Error</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
 <main class="page">
     <section class="card">
-        <h1 th:text="${errorTitle != null ? errorTitle : 'Chyba'}">Chyba</h1>
+        <h1 th:text="${errorTitle != null ? errorTitle : #messages.msg('error.title')}">Chyba</h1>
 
         <p class="alert alert-error"
-           th:text="${errorMessage != null ? errorMessage : 'Doslo k chybe pri zpracovani pozadavku.'}">
-            Doslo k chybe pri zpracovani pozadavku.
+           th:text="${errorMessage != null ? errorMessage : #messages.msg('error.message')}">
+            Došlo k chybě při zpracování požadavku.
         </p>
 
         <p class="muted" th:if="${logId != null}">
-            ID logu: <span th:text="${logId}">1</span>
+            <span th:text="#{error.logId}">ID logu:</span>
+            <span th:text="${logId}">1</span>
         </p>
 
-        <a th:href="@{/dashboard}">Zpet na dashboard</a>
+        <a th:href="@{/dashboard}" th:text="#{error.backToDashboard}">Zpět na dashboard</a>
     </section>
 </main>
 </body>

@@ -19,8 +19,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @Controller
 public class HomeController {
 
-    private static final String DEFAULT_LANGUAGE = "CZ";
-
     private final SettingsService settingsService;
     private final CurrencyAnalysisService currencyAnalysisService;
 
@@ -103,6 +101,7 @@ public class HomeController {
         model.addAttribute("baseCurrency", settings.baseCurrency());
         model.addAttribute("availableCurrencies", settingsService.getAvailableCurrencies());
         model.addAttribute("selectedCurrencies", settings.selectedCurrencies());
+        model.addAttribute("language", settings.language());
 
         return "settings";
     }
@@ -111,10 +110,11 @@ public class HomeController {
     public String saveSettings(
             @RequestParam String baseCurrency,
             @RequestParam(required = false) List<String> selectedCurrencies,
+            @RequestParam String language,
             RedirectAttributes redirectAttributes
     ) {
-        settingsService.saveSettings(baseCurrency, selectedCurrencies, DEFAULT_LANGUAGE);
-        redirectAttributes.addFlashAttribute("successMessage", "Nastavení bylo uloženo.");
+        settingsService.saveSettings(baseCurrency, selectedCurrencies, language);
+        redirectAttributes.addFlashAttribute("settingsSaved", true);
 
         return "redirect:/settings";
     }

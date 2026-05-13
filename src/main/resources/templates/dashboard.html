@@ -1,29 +1,29 @@
 <!DOCTYPE html>
-<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<html lang="cs" th:lang="#{html.lang}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Currency Analyzer - Dashboard</title>
+    <title th:text="#{dashboard.pageTitle}">Currency Analyzer - Dashboard</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
 <header class="topbar">
     <div>
-        <strong>Currency Analyzer</strong>
+        <strong th:text="#{app.name}">Currency Analyzer</strong>
     </div>
     <nav>
-        <a th:href="@{/dashboard}">Dashboard</a>
-        <a th:href="@{/settings}">Nastavení</a>
+        <a th:href="@{/dashboard}" th:text="#{nav.dashboard}">Dashboard</a>
+        <a th:href="@{/settings}" th:text="#{nav.settings}">Nastavení</a>
         <form th:action="@{/logout}" method="post" class="logout-form">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-            <button type="submit" class="link-button">Odhlásit</button>
+            <button type="submit" class="link-button" th:text="#{nav.logout}">Odhlásit</button>
         </form>
     </nav>
 </header>
 
 <main class="page">
     <section class="card">
-        <h1>Dashboard</h1>
-        <p class="muted">
+        <h1 th:text="#{dashboard.title}">Dashboard</h1>
+        <p class="muted" th:text="#{dashboard.description}">
             Analýza měnových kurzů podle uložených měn z nastavení.
         </p>
 
@@ -32,7 +32,7 @@
 
             <div class="grid-form">
                 <div>
-                    <label for="baseCurrency">Základní měna</label>
+                    <label for="baseCurrency" th:text="#{dashboard.baseCurrency}">Základní měna</label>
                     <select id="baseCurrency" name="baseCurrency">
                         <option th:each="currency : ${availableCurrencies}"
                                 th:value="${currency}"
@@ -44,28 +44,30 @@
                 </div>
 
                 <div>
-                    <label for="rateDate">Datum kurzu</label>
+                    <label for="rateDate" th:text="#{dashboard.rateDate}">Datum kurzu</label>
                     <input id="rateDate" name="rateDate" type="date" th:value="${rateDate}" th:attr="max=${today}">
                 </div>
 
                 <div>
-                    <label for="averageStartDate">Průměr od</label>
+                    <label for="averageStartDate" th:text="#{dashboard.averageStartDate}">Průměr od</label>
                     <input id="averageStartDate" name="averageStartDate" type="date" th:value="${averageStartDate}" th:attr="max=${today}">
                 </div>
 
                 <div>
-                    <label for="averageEndDate">Průměr do</label>
+                    <label for="averageEndDate" th:text="#{dashboard.averageEndDate}">Průměr do</label>
                     <input id="averageEndDate" name="averageEndDate" type="date" th:value="${averageEndDate}" th:attr="max=${today}">
                 </div>
             </div>
 
-            <button type="submit">Načíst data</button>
+            <button type="submit" th:text="#{dashboard.loadData}">Načíst data</button>
         </form>
     </section>
 
     <section class="card">
-        <h2>Vybrané měny</h2>
-        <p class="muted">Měny se načítají z uloženého nastavení uživatele.</p>
+        <h2 th:text="#{dashboard.selectedCurrencies}">Vybrané měny</h2>
+        <p class="muted" th:text="#{dashboard.selectedCurrenciesDescription}">
+            Měny se načítají z uloženého nastavení uživatele.
+        </p>
 
         <div class="tag-list">
             <span class="tag" th:each="currency : ${selectedCurrencies}" th:text="${currency}">USD</span>
@@ -73,49 +75,49 @@
     </section>
 
     <section class="card">
-        <h2>Souhrn</h2>
+        <h2 th:text="#{dashboard.summary}">Souhrn</h2>
 
-        <div th:if="${!analysisAvailable}" class="alert alert-success">
+        <div th:if="${!analysisAvailable}" class="alert alert-success" th:text="#{dashboard.noAnalysis}">
             Vyberte datum kurzu, období pro průměr a klikněte na tlačítko Načíst data.
         </div>
 
         <table>
             <tbody>
             <tr>
-                <th>Datum kurzu</th>
+                <th th:text="#{dashboard.rateDate}">Datum kurzu</th>
                 <td th:text="${rateDate}">-</td>
             </tr>
             <tr>
-                <th>Období pro průměr</th>
+                <th th:text="#{dashboard.averagePeriod}">Období pro průměr</th>
                 <td th:text="|${averageStartDate} - ${averageEndDate}|">-</td>
             </tr>
             <tr>
-                <th>Nejvyšší nominální kurz</th>
+                <th th:text="#{dashboard.highestNominalRate}">Nejvyšší nominální kurz</th>
                 <td th:text="${strongestCurrency}">-</td>
             </tr>
             <tr>
-                <th>Nejnižší nominální kurz</th>
+                <th th:text="#{dashboard.lowestNominalRate}">Nejnižší nominální kurz</th>
                 <td th:text="${weakestCurrency}">-</td>
             </tr>
             </tbody>
         </table>
 
-        <p class="muted" th:if="${analysisAvailable}">
+        <p class="muted" th:if="${analysisAvailable}" th:text="#{dashboard.nominalRateNote}">
             Porovnání nejsilnější a nejslabší měny je provedeno podle nominální hodnoty kurzu vůči základní měně.
         </p>
     </section>
 
     <section class="card" th:if="${analysisAvailable}">
-        <h2>Kurzy k vybranému datu</h2>
-        <p class="muted">
+        <h2 th:text="#{dashboard.dateRates}">Kurzy k vybranému datu</h2>
+        <p class="muted" th:text="#{dashboard.dateRatesDescription}">
             Přímé kurzy pro vybrané měnové páry k jednomu datu.
         </p>
 
         <table>
             <thead>
             <tr>
-                <th>Měnová dvojice</th>
-                <th>Kurz</th>
+                <th th:text="#{dashboard.currencyPair}">Měnová dvojice</th>
+                <th th:text="#{dashboard.rate}">Kurz</th>
             </tr>
             </thead>
             <tbody>
@@ -128,16 +130,16 @@
     </section>
 
     <section class="card" th:if="${analysisAvailable}">
-        <h2>Průměrné kurzy za období</h2>
-        <p class="muted">
+        <h2 th:text="#{dashboard.averageRates}">Průměrné kurzy za období</h2>
+        <p class="muted" th:text="#{dashboard.averageRatesDescription}">
             Zadané období se používá pouze pro výpočet průměrného kurzu každé vybrané měnové dvojice.
         </p>
 
         <table>
             <thead>
             <tr>
-                <th>Měnová dvojice</th>
-                <th>Průměrný kurz</th>
+                <th th:text="#{dashboard.currencyPair}">Měnová dvojice</th>
+                <th th:text="#{dashboard.averageRate}">Průměrný kurz</th>
             </tr>
             </thead>
             <tbody>

@@ -2,8 +2,6 @@ package cz.tul.stin.currencyanalyzer.service;
 
 import cz.tul.stin.currencyanalyzer.entity.ApplicationLog;
 import cz.tul.stin.currencyanalyzer.repository.ApplicationLogRepository;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +29,7 @@ public class ApplicationLogService {
     }
 
     public ApplicationLog logError(String source, String message, Throwable exception) {
-        String detail = exception == null ? null : stackTraceToString(exception);
+        String detail = exception == null ? null : exceptionToDetail(exception);
 
         return saveLog(
                 "ERROR",
@@ -79,12 +77,14 @@ public class ApplicationLogService {
         return detail.trim();
     }
 
-    private String stackTraceToString(Throwable exception) {
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter printWriter = new PrintWriter(stringWriter);
+    private String exceptionToDetail(Throwable exception) {
+        String exceptionName = exception.getClass().getSimpleName();
+        String exceptionMessage = exception.getMessage();
 
-        exception.printStackTrace(printWriter);
+        if (exceptionMessage == null || exceptionMessage.isBlank()) {
+            return exceptionName;
+        }
 
-        return stringWriter.toString();
+        return exceptionName + ": " + exceptionMessage;
     }
 }
