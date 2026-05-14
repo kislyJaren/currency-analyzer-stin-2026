@@ -2,16 +2,33 @@ package cz.tul.stin.currencyanalyzer.service;
 
 import cz.tul.stin.currencyanalyzer.client.ExchangeRateClient;
 import cz.tul.stin.currencyanalyzer.dto.CurrencyAnalysisResultDto;
+import cz.tul.stin.currencyanalyzer.dto.CurrencyChartLineDto;
+import cz.tul.stin.currencyanalyzer.dto.CurrencyChartPointDto;
 import cz.tul.stin.currencyanalyzer.dto.CurrencyRateDto;
 import cz.tul.stin.currencyanalyzer.dto.HistoricalRatesDto;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CurrencyAnalysisService {
+
+    private static final double CHART_MIN_Y = 10.0;
+    private static final double CHART_MAX_Y = 90.0;
+    private static final String[] CHART_COLOR_CLASSES = {
+            "chart-line-0",
+            "chart-line-1",
+            "chart-line-2",
+            "chart-line-3",
+            "chart-line-4",
+            "chart-line-5"
+    };
 
     private final ExchangeRateClient exchangeRateClient;
     private final StatisticsService statisticsService;
@@ -30,103 +47,217 @@ public class CurrencyAnalysisService {
     public CurrencyAnalysisResultDto analyze(
             String baseCurrency,
             List<String> selectedCurrencies,
-            LocalDate rateDate,
-            LocalDate averageStartDate,
-            LocalDate averageEndDate
+            LocalDate periodStartDate,
+            LocalDate periodEndDate
     ) {
         String normalizedBaseCurrency = normalizeBaseCurrency(baseCurrency);
         List<String> normalizedCurrencies = normalizeCurrencies(selectedCurrencies);
-        validateDate(rateDate);
-        validateDateRange(averageStartDate, averageEndDate);
+        validateDateRange(periodStartDate, periodEndDate);
 
         applicationLogService.logInfo(
                 "Analysis",
                 "Spustena analyza menovych kurzu.",
                 "baseCurrency=" + normalizedBaseCurrency
                         + "; selectedCurrencies=" + formatCurrencies(normalizedCurrencies)
-                        + "; rateDate=" + rateDate
-                        + "; averageStartDate=" + averageStartDate
-                        + "; averageEndDate=" + averageEndDate
-        );
-
-        HistoricalRatesDto ratesForSelectedDate = exchangeRateClient.getHistoricalRates(
-                normalizedBaseCurrency,
-                normalizedCurrencies,
-                rateDate,
-                rateDate
-        );
-
-        Map<String, BigDecimal> dateRates = getRatesForDate(
-                ratesForSelectedDate.rates(),
-                rateDate
+                        + "; periodStartDate=" + periodStartDate
+                        + "; periodEndDate=" + periodEndDate
         );
 
         HistoricalRatesDto historicalRates = exchangeRateClient.getHistoricalRates(
                 normalizedBaseCurrency,
                 normalizedCurrencies,
-                averageStartDate,
-                averageEndDate
+                periodStartDate,
+                periodEndDate
+        );
+
+        Map<LocalDate, Map<String, BigDecimal>> dailyRates = sortDailyRates(historicalRates.rates());
+
+        Map<String, BigDecimal> averageRates = statisticsService.calculateAverageRates(
+                dailyRates,
+                normalizedCurrencies
         );
 
         CurrencyRateDto strongestCurrency = statisticsService.findStrongestCurrency(
-                dateRates,
+                averageRates,
                 normalizedCurrencies
         );
 
         CurrencyRateDto weakestCurrency = statisticsService.findWeakestCurrency(
-                dateRates,
+                averageRates,
                 normalizedCurrencies
         );
 
         BigDecimal averageRate = statisticsService.calculateAverageRate(
-                historicalRates.rates(),
+                dailyRates,
                 normalizedCurrencies
         );
 
-        Map<String, BigDecimal> averageRates = statisticsService.calculateAverageRates(
-                historicalRates.rates(),
-                normalizedCurrencies
-        );
+        List<CurrencyChartLineDto> chartLines = buildChartLines(dailyRates, normalizedCurrencies);
+        List<String> chartDateLabels = dailyRates.keySet().stream()
+                .map(LocalDate::toString)
+                .toList();
 
         applicationLogService.logInfo(
                 "Analysis",
                 "Analyza menovych kurzu byla dokoncena.",
                 "baseCurrency=" + normalizedBaseCurrency
                         + "; selectedCurrencies=" + formatCurrencies(normalizedCurrencies)
-                        + "; rateDate=" + rateDate
-                        + "; averageStartDate=" + averageStartDate
-                        + "; averageEndDate=" + averageEndDate
-                        + "; dateRatesCount=" + dateRates.size()
+                        + "; periodStartDate=" + periodStartDate
+                        + "; periodEndDate=" + periodEndDate
+                        + "; dailyRatesCount=" + dailyRates.size()
                         + "; averageRatesCount=" + averageRates.size()
-                        + "; highestNominalRate=" + strongestCurrency.currency()
-                        + "; lowestNominalRate=" + weakestCurrency.currency()
+                        + "; highestNominalAverageRate=" + strongestCurrency.currency()
+                        + "; lowestNominalAverageRate=" + weakestCurrency.currency()
         );
 
         return new CurrencyAnalysisResultDto(
                 normalizedBaseCurrency,
                 normalizedCurrencies,
-                rateDate,
-                averageStartDate,
-                averageEndDate,
+                periodStartDate,
+                periodEndDate,
                 strongestCurrency,
                 weakestCurrency,
                 averageRate,
-                dateRates,
-                averageRates
+                dailyRates,
+                averageRates,
+                chartLines,
+                chartDateLabels
         );
     }
 
-    private Map<String, BigDecimal> getRatesForDate(
-            Map<LocalDate, Map<String, BigDecimal>> rates,
-            LocalDate date
+    private Map<LocalDate, Map<String, BigDecimal>> sortDailyRates(
+            Map<LocalDate, Map<String, BigDecimal>> dailyRates
     ) {
-        Map<String, BigDecimal> dateRates = rates.get(date);
-
-        if (dateRates == null || dateRates.isEmpty()) {
-            throw new IllegalArgumentException("No rates available for selected date.");
+        if (dailyRates == null || dailyRates.isEmpty()) {
+            return Map.of();
         }
 
-        return dateRates;
+        Map<LocalDate, Map<String, BigDecimal>> sortedRates = new LinkedHashMap<>();
+
+        dailyRates.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> sortedRates.put(entry.getKey(), entry.getValue()));
+
+        return sortedRates;
+    }
+
+    private List<CurrencyChartLineDto> buildChartLines(
+            Map<LocalDate, Map<String, BigDecimal>> dailyRates,
+            List<String> selectedCurrencies
+    ) {
+        if (dailyRates == null || dailyRates.isEmpty()) {
+            return List.of();
+        }
+
+        List<LocalDate> dates = dailyRates.keySet().stream()
+                .sorted()
+                .toList();
+
+        List<CurrencyChartLineDto> lines = new ArrayList<>();
+
+        for (int currencyIndex = 0; currencyIndex < selectedCurrencies.size(); currencyIndex++) {
+            String currency = selectedCurrencies.get(currencyIndex);
+            List<CurrencyChartPointDto> chartPoints = buildChartPointsForCurrency(
+                    dates,
+                    dailyRates,
+                    currency
+            );
+
+            if (!chartPoints.isEmpty()) {
+                String points = chartPoints.stream()
+                        .map(point -> point.x() + "," + point.y())
+                        .reduce((left, right) -> left + " " + right)
+                        .orElse("");
+
+                lines.add(new CurrencyChartLineDto(
+                        currency,
+                        points,
+                        CHART_COLOR_CLASSES[currencyIndex % CHART_COLOR_CLASSES.length],
+                        chartPoints
+                ));
+            }
+        }
+
+        return lines;
+    }
+
+    private List<CurrencyChartPointDto> buildChartPointsForCurrency(
+            List<LocalDate> dates,
+            Map<LocalDate, Map<String, BigDecimal>> dailyRates,
+            String currency
+    ) {
+        BigDecimal minRate = null;
+        BigDecimal maxRate = null;
+
+        for (LocalDate date : dates) {
+            Map<String, BigDecimal> ratesForDate = dailyRates.get(date);
+
+            if (ratesForDate == null) {
+                continue;
+            }
+
+            BigDecimal rate = ratesForDate.get(currency);
+
+            if (rate == null) {
+                continue;
+            }
+
+            if (minRate == null || rate.compareTo(minRate) < 0) {
+                minRate = rate;
+            }
+
+            if (maxRate == null || rate.compareTo(maxRate) > 0) {
+                maxRate = rate;
+            }
+        }
+
+        if (minRate == null || maxRate == null) {
+            return List.of();
+        }
+
+        List<CurrencyChartPointDto> points = new ArrayList<>();
+
+        for (int index = 0; index < dates.size(); index++) {
+            LocalDate date = dates.get(index);
+            Map<String, BigDecimal> ratesForDate = dailyRates.get(date);
+
+            if (ratesForDate == null || !ratesForDate.containsKey(currency)) {
+                continue;
+            }
+
+            BigDecimal rate = ratesForDate.get(currency);
+
+            double x = calculateX(index, dates.size());
+            double y = calculateY(rate, minRate, maxRate);
+
+            points.add(new CurrencyChartPointDto(
+                    date.toString(),
+                    String.format(Locale.US, "%.2f", x),
+                    String.format(Locale.US, "%.2f", y),
+                    rate.toPlainString()
+            ));
+        }
+
+        return points;
+    }
+
+    private double calculateX(int index, int count) {
+        if (count <= 1) {
+            return 50.0;
+        }
+
+        return (index * 100.0) / (count - 1);
+    }
+
+    private double calculateY(BigDecimal rate, BigDecimal minRate, BigDecimal maxRate) {
+        if (maxRate.compareTo(minRate) == 0) {
+            return 50.0;
+        }
+
+        BigDecimal normalized = rate.subtract(minRate)
+                .divide(maxRate.subtract(minRate), 10, RoundingMode.HALF_UP);
+
+        return CHART_MAX_Y - normalized.doubleValue() * (CHART_MAX_Y - CHART_MIN_Y);
     }
 
     private String normalizeBaseCurrency(String baseCurrency) {
@@ -162,16 +293,6 @@ public class CurrencyAnalysisService {
         return currency.trim().toUpperCase();
     }
 
-    private void validateDate(LocalDate date) {
-        if (date == null) {
-            throw new IllegalArgumentException("Rate date must not be empty.");
-        }
-
-        if (date.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("Rate date must not be in the future");
-        }
-    }
-
     private void validateDateRange(LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null) {
             throw new IllegalArgumentException("Start date and end date must not be empty.");
@@ -180,7 +301,7 @@ public class CurrencyAnalysisService {
         LocalDate today = LocalDate.now();
 
         if (startDate.isAfter(today) || endDate.isAfter(today)) {
-            throw new IllegalArgumentException("Average date range must not contain future dates.");
+            throw new IllegalArgumentException("Date range must not contain future dates.");
         }
 
         if (startDate.isAfter(endDate)) {

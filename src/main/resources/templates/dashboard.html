@@ -44,18 +44,21 @@
                 </div>
 
                 <div>
-                    <label for="rateDate" th:text="#{dashboard.rateDate}">Datum kurzu</label>
-                    <input id="rateDate" name="rateDate" type="date" th:value="${rateDate}" th:attr="max=${today}">
+                    <label for="periodStartDate" th:text="#{dashboard.periodStartDate}">Období od</label>
+                    <input id="periodStartDate"
+                           name="periodStartDate"
+                           type="date"
+                           th:value="${periodStartDate}"
+                           th:attr="max=${today}">
                 </div>
 
                 <div>
-                    <label for="averageStartDate" th:text="#{dashboard.averageStartDate}">Průměr od</label>
-                    <input id="averageStartDate" name="averageStartDate" type="date" th:value="${averageStartDate}" th:attr="max=${today}">
-                </div>
-
-                <div>
-                    <label for="averageEndDate" th:text="#{dashboard.averageEndDate}">Průměr do</label>
-                    <input id="averageEndDate" name="averageEndDate" type="date" th:value="${averageEndDate}" th:attr="max=${today}">
+                    <label for="periodEndDate" th:text="#{dashboard.periodEndDate}">Období do</label>
+                    <input id="periodEndDate"
+                           name="periodEndDate"
+                           type="date"
+                           th:value="${periodEndDate}"
+                           th:attr="max=${today}">
                 </div>
             </div>
 
@@ -78,52 +81,114 @@
         <h2 th:text="#{dashboard.summary}">Souhrn</h2>
 
         <div th:if="${!analysisAvailable}" class="alert alert-success" th:text="#{dashboard.noAnalysis}">
-            Vyberte datum kurzu, období pro průměr a klikněte na tlačítko Načíst data.
+            Vyberte období a klikněte na tlačítko Načíst data.
         </div>
 
         <table>
             <tbody>
             <tr>
-                <th th:text="#{dashboard.rateDate}">Datum kurzu</th>
-                <td th:text="${rateDate}">-</td>
+                <th th:text="#{dashboard.period}">Období</th>
+                <td th:text="|${periodStartDate} - ${periodEndDate}|">-</td>
             </tr>
             <tr>
-                <th th:text="#{dashboard.averagePeriod}">Období pro průměr</th>
-                <td th:text="|${averageStartDate} - ${averageEndDate}|">-</td>
-            </tr>
-            <tr>
-                <th th:text="#{dashboard.highestNominalRate}">Nejvyšší nominální kurz</th>
+                <th th:text="#{dashboard.highestNominalRate}">Nejvyšší průměrný nominální kurz</th>
                 <td th:text="${strongestCurrency}">-</td>
             </tr>
             <tr>
-                <th th:text="#{dashboard.lowestNominalRate}">Nejnižší nominální kurz</th>
+                <th th:text="#{dashboard.lowestNominalRate}">Nejnižší průměrný nominální kurz</th>
                 <td th:text="${weakestCurrency}">-</td>
+            </tr>
+            <tr>
+                <th th:text="#{dashboard.averageRate}">Průměrný kurz</th>
+                <td th:text="${averageRate}">-</td>
             </tr>
             </tbody>
         </table>
 
         <p class="muted" th:if="${analysisAvailable}" th:text="#{dashboard.nominalRateNote}">
-            Porovnání nejsilnější a nejslabší měny je provedeno podle nominální hodnoty kurzu vůči základní měně.
+            Porovnání je provedeno podle nominální hodnoty kurzu vůči základní měně.
         </p>
     </section>
 
     <section class="card" th:if="${analysisAvailable}">
-        <h2 th:text="#{dashboard.dateRates}">Kurzy k vybranému datu</h2>
-        <p class="muted" th:text="#{dashboard.dateRatesDescription}">
-            Přímé kurzy pro vybrané měnové páry k jednomu datu.
+        <h2 th:text="#{dashboard.rateChart}">Vývoj kurzů za období</h2>
+        <p class="muted" th:text="#{dashboard.rateChartDescription}">
+            Graf ukazuje vývoj kurzů jednotlivých měn za období.
+        </p>
+
+        <div class="chart-wrapper">
+            <div class="chart-y-title" th:text="#{dashboard.chartYAxis}">
+                Relativní vývoj
+            </div>
+
+            <div class="chart-area">
+                <div class="chart-y-labels">
+                    <span th:text="#{dashboard.chartYMax}">Maximum v období</span>
+                    <span th:text="#{dashboard.chartYMin}">Minimum v období</span>
+                </div>
+
+                <div class="line-chart">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
+                        <line class="chart-axis" x1="0" y1="90" x2="100" y2="90"></line>
+                        <line class="chart-axis" x1="0" y1="10" x2="0" y2="90"></line>
+
+                        <polyline th:each="line : ${chartLines}"
+                                  th:class="|chart-line ${line.colorClass()}|"
+                                  th:attr="points=${line.points()}">
+                        </polyline>
+
+                        <g th:each="line : ${chartLines}">
+                            <circle th:each="point : ${line.chartPoints()}"
+                                    r="1.4"
+                                    th:class="|chart-point ${line.colorClass()}|"
+                                    th:attr="cx=${point.x()}, cy=${point.y()}">
+                                <title th:text="|${line.currency()} ${point.date()} = ${point.rate()}|">
+                                    CZK 2026-05-14 = 24.50
+                                </title>
+                            </circle>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="chart-x-title" th:text="#{dashboard.chartXAxis}">Datum</div>
+
+            <div class="chart-date-labels">
+                <span th:each="date : ${chartDateLabels}" th:text="${date}">2026-05-14</span>
+            </div>
+        </div>
+
+        <div class="chart-legend">
+            <span class="chart-legend-item" th:each="line : ${chartLines}">
+                <span th:class="|chart-legend-color ${line.colorClass()}|"></span>
+                <span th:text="|${baseCurrency} / ${line.currency()}|">EUR / CZK</span>
+            </span>
+        </div>
+    </section>
+
+    <section class="card" th:if="${analysisAvailable}">
+        <h2 th:text="#{dashboard.dailyRates}">Denní kurzy za období</h2>
+        <p class="muted" th:text="#{dashboard.dailyRatesDescription}">
+            Reálné hodnoty kurzů pro každý den vybraného období.
         </p>
 
         <table>
             <thead>
             <tr>
-                <th th:text="#{dashboard.currencyPair}">Měnová dvojice</th>
-                <th th:text="#{dashboard.rate}">Kurz</th>
+                <th th:text="#{dashboard.date}">Datum</th>
+                <th th:each="currency : ${selectedCurrencies}"
+                    th:text="|${baseCurrency} / ${currency}|">
+                    EUR / CZK
+                </th>
             </tr>
             </thead>
             <tbody>
-            <tr th:each="rate : ${dateRates}">
-                <td th:text="|${baseCurrency} / ${rate.key}|">USD / CZK</td>
-                <td th:text="|1 ${baseCurrency} = ${rate.value} ${rate.key}|">1 USD = 20.855199 CZK</td>
+            <tr th:each="dailyRate : ${dailyRates}">
+                <td th:text="${dailyRate.key}">2026-05-14</td>
+                <td th:each="currency : ${selectedCurrencies}"
+                    th:text="${dailyRate.value.get(currency) != null ? dailyRate.value.get(currency) : '-'}">
+                    24.50
+                </td>
             </tr>
             </tbody>
         </table>
@@ -132,7 +197,7 @@
     <section class="card" th:if="${analysisAvailable}">
         <h2 th:text="#{dashboard.averageRates}">Průměrné kurzy za období</h2>
         <p class="muted" th:text="#{dashboard.averageRatesDescription}">
-            Zadané období se používá pouze pro výpočet průměrného kurzu každé vybrané měnové dvojice.
+            Průměrný kurz každé vybrané měnové dvojice za celé období.
         </p>
 
         <table>
@@ -144,8 +209,8 @@
             </thead>
             <tbody>
             <tr th:each="rate : ${averageRates}">
-                <td th:text="|${baseCurrency} / ${rate.key}|">USD / CZK</td>
-                <td th:text="|1 ${baseCurrency} = ${rate.value} ${rate.key}|">1 USD = 20.860000 CZK</td>
+                <td th:text="|${baseCurrency} / ${rate.key}|">EUR / CZK</td>
+                <td th:text="|1 ${baseCurrency} = ${rate.value} ${rate.key}|">1 EUR = 24.500000 CZK</td>
             </tr>
             </tbody>
         </table>

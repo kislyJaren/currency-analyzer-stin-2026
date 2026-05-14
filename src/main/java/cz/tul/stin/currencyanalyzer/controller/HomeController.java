@@ -44,51 +44,52 @@ public class HomeController {
     public String dashboard(
             @RequestParam(required = false) String baseCurrency,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate rateDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStartDate,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate averageStartDate,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate averageEndDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEndDate,
             @RequestParam(defaultValue = "false") boolean analyze,
             Model model
     ) {
         UserSettingsDto settings = settingsService.getSettings();
 
         String selectedBaseCurrency = resolveBaseCurrency(baseCurrency, settings.baseCurrency());
-        LocalDate selectedRateDate = rateDate == null ? LocalDate.now() : rateDate;
-        LocalDate selectedAverageStartDate = averageStartDate == null
+        LocalDate selectedPeriodStartDate = periodStartDate == null
                 ? LocalDate.now().minusDays(1)
-                : averageStartDate;
-        LocalDate selectedAverageEndDate = averageEndDate == null ? LocalDate.now() : averageEndDate;
+                : periodStartDate;
+        LocalDate selectedPeriodEndDate = periodEndDate == null ? LocalDate.now() : periodEndDate;
         List<String> selectedCurrencies = settings.selectedCurrencies();
 
         model.addAttribute("baseCurrency", selectedBaseCurrency);
         model.addAttribute("availableCurrencies", settingsService.getAvailableCurrencies());
         model.addAttribute("selectedCurrencies", selectedCurrencies);
-        model.addAttribute("rateDate", selectedRateDate);
-        model.addAttribute("averageStartDate", selectedAverageStartDate);
-        model.addAttribute("averageEndDate", selectedAverageEndDate);
+        model.addAttribute("periodStartDate", selectedPeriodStartDate);
+        model.addAttribute("periodEndDate", selectedPeriodEndDate);
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("analysisAvailable", false);
         model.addAttribute("strongestCurrency", "-");
         model.addAttribute("weakestCurrency", "-");
-        model.addAttribute("dateRates", Map.of());
+        model.addAttribute("averageRate", "-");
+        model.addAttribute("dailyRates", Map.of());
         model.addAttribute("averageRates", Map.of());
+        model.addAttribute("chartLines", List.of());
+        model.addAttribute("chartDateLabels", List.of());
 
         if (analyze) {
             CurrencyAnalysisResultDto result = currencyAnalysisService.analyze(
                     selectedBaseCurrency,
                     selectedCurrencies,
-                    selectedRateDate,
-                    selectedAverageStartDate,
-                    selectedAverageEndDate
+                    selectedPeriodStartDate,
+                    selectedPeriodEndDate
             );
 
             model.addAttribute("analysisAvailable", true);
             model.addAttribute("strongestCurrency", formatCurrencyRate(result.strongestCurrency()));
             model.addAttribute("weakestCurrency", formatCurrencyRate(result.weakestCurrency()));
-            model.addAttribute("dateRates", result.dateRates());
+            model.addAttribute("averageRate", result.averageRate());
+            model.addAttribute("dailyRates", result.dailyRates());
             model.addAttribute("averageRates", result.averageRates());
+            model.addAttribute("chartLines", result.chartLines());
+            model.addAttribute("chartDateLabels", result.chartDateLabels());
         }
 
         return "dashboard";

@@ -8,13 +8,14 @@ import java.util.Map;
 public record CurrencyAnalysisResultDto(
         String baseCurrency,
         List<String> selectedCurrencies,
-        LocalDate rateDate,
-        LocalDate averageStartDate,
-        LocalDate averageEndDate,
+        LocalDate periodStartDate,
+        LocalDate periodEndDate,
         CurrencyRateDto strongestCurrency,
         CurrencyRateDto weakestCurrency,
         BigDecimal averageRate,
-        Map<String, BigDecimal> dateRates,
-        Map<String, BigDecimal> averageRates
+        Map<LocalDate, Map<String, BigDecimal>> dailyRates,
+        Map<String, BigDecimal> averageRates,
+        List<CurrencyChartLineDto> chartLines,
+        List<String> chartDateLabels
 ) {
 }
